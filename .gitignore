@@ -17,6 +17,13 @@ captures/
 # Local agent working notes
 /agent_docs/
 
+# Local decompiling / probing artifacts (scripts/probe)
+scripts/probe/*.dex
+scripts/probe/*.class
+scripts/probe/out*/
+scripts/probe/dexout*/
+scripts/probe/hud_dump/
+
 # OS files
 .DS_Store
 Thumbs.db
