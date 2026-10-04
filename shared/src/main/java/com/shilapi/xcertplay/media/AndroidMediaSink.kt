@@ -12,6 +12,7 @@ import android.media.MediaFormat
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.Process
 import android.util.Log
 import android.view.Surface
 import com.shilapi.xcertplay.airplay.AudioCodecKind
@@ -133,6 +134,11 @@ class AndroidMediaSink(
     private val navigationStreamType: Int = AudioChannelMapper.DEFAULT_NAVIGATION_STREAM_TYPE,
     onScreenStreamActiveChanged: ((Int, Boolean) -> Unit)? = null,
     private val mediaBufferMillis: Int = MediaAudioBuffer.DEFAULT_MILLIS,
+    /**
+     * Play audio the way the app did before the playout-clock work. Kept switchable so both paths
+     * can be compared on the car; see [AudioRenderer] for the four behaviours it reverts.
+     */
+    private val legacyAudioPath: Boolean = false,
     private val onAudioDiagnostic: (String) -> Unit = {},
     /** True while any music ("media") audio stream is running; called from media threads. */
     private val onMediaAudioChanged: (Boolean) -> Unit = {},
@@ -271,6 +277,8 @@ class AndroidMediaSink(
         updateMediaAudio(id, false)
     }
 
+    override fun audioPlayedSample(id: AudioStreamId): Int? = audioRenderers[id]?.playedSampleTime()
+
     private fun updateMediaAudio(id: AudioStreamId, active: Boolean) {
         val (before, after) = synchronized(mediaAudioTypes) {
             val before = mediaAudioTypes.isNotEmpty()
@@ -341,6 +349,7 @@ class AndroidMediaSink(
             audioFocusCoordinator,
             navigationStreamType,
             mediaBufferMillis,
+            legacyAudioPath,
             onAudioDiagnostic,
         ).also { audioRenderers[id] = it }
     }
@@ -716,6 +725,9 @@ private class AudioRenderer(
     private val audioFocusCoordinator: AudioFocusCoordinator,
     private val navigationStreamType: Int,
     private val mediaBufferMillis: Int,
+    /** See [AndroidMediaSink.legacyAudioPath]. Reverts the playout clock, the overflow policy, the
+     *  audio thread priority and the post-dry-out refill level to their pre-fix behaviour. */
+    private val legacyAudioPath: Boolean,
     private val report: (String) -> Unit,
 ) : Closeable {
     private data class AudioPacket(val rtp: ByteArray, val sample: Int)
@@ -731,6 +743,7 @@ private class AudioRenderer(
     private var playbackStarted = false
     private var prebufferBytes = 0
     private var startThresholdBytes = 0
+    private var resumeThresholdBytes = 0
     private var fadeApplied = false
     private var droppedPacketsLogged = false
     private var firstAacPayloadLogged = false
@@ -760,6 +773,14 @@ private class AudioRenderer(
     private var underrunsAtPlaybackStart = 0
     private var lastPcmWriteNs = 0L
     private var rebufferCount = 0
+    // Playout clock reported back to the phone through /feedback. The speaker advances on the car's
+    // audio clock, not on System.nanoTime(), so only playbackHeadPosition describes what is audible.
+    @Volatile private var originRtpSample: Int? = null
+    @Volatile private var lastRtpSample: Int? = null
+    @Volatile private var packetsHandled = 0L
+    @Volatile private var rtpClockVerified = false
+    @Volatile private var rtpClockRejected = false
+    @Volatile private var droppedOldestPackets = 0L
     private val thread = Thread(::run, "carplay-audio").apply { isDaemon = true }
 
     fun start() {
@@ -769,19 +790,73 @@ private class AudioRenderer(
     }
 
     fun submit(rtp: ByteArray, sample: Int) {
-        if (started) {
-            packetsReceived.incrementAndGet()
-            val now = System.nanoTime()
-            val previous = lastArrivalNs.getAndSet(now)
-            if (previous != 0L) maxArrivalGapMs.accumulateAndGet((now - previous) / 1_000_000L, ::maxOf)
-        }
-        if (!started || !queue.offer(AudioPacket(rtp, sample))) {
-            if (started) packetsDropped.incrementAndGet()
-            if (started && !droppedPacketsLogged) {
+        if (!started) return
+        packetsReceived.incrementAndGet()
+        val now = System.nanoTime()
+        val previous = lastArrivalNs.getAndSet(now)
+        if (previous != 0L) maxArrivalGapMs.accumulateAndGet((now - previous) / 1_000_000L, ::maxOf)
+        if (queue.offer(AudioPacket(rtp, sample))) return
+        packetsDropped.incrementAndGet()
+        if (legacyAudioPath) {
+            // Legacy policy: keep the backlog already queued and drop the packet that just arrived.
+            if (!droppedPacketsLogged) {
                 droppedPacketsLogged = true
-                Log.w(TAG, "audio queue full; dropping newest packets to bound latency")
+                Log.w(TAG, "audio queue full; dropping the newest packet")
                 report("Audio: queue full audioType=${format.audioType}")
             }
+            return
+        }
+        // The queue is full, so the sound we are still holding is already stale. Give up the oldest
+        // packet and keep the one that just arrived, so playback stays as close to live as the
+        // configured cushion allows instead of walking further behind on every burst.
+        droppedOldestPackets++
+        queue.poll()
+        if (!queue.offer(AudioPacket(rtp, sample))) packetsDropped.incrementAndGet()
+        if (!droppedPacketsLogged) {
+            droppedPacketsLogged = true
+            Log.w(TAG, "audio queue full; dropping the oldest packet to stay near live")
+            report("Audio: queue full audioType=${format.audioType}")
+        }
+    }
+
+    /**
+     * The RTP sample the speaker is playing right now, or null when we cannot map it yet.
+     *
+     * The phone paces its audio against this value, so it must advance on the same clock as the
+     * speaker. Reporting System.nanoTime() instead makes the phone pace against the system clock
+     * while the DAC runs on its own crystal: the difference is small but permanent, so the cushion
+     * slowly walks into a dry-out (or into the packet queue's ceiling) no matter how large it is.
+     *
+     * Null in legacy mode, which is what makes CarPlayMediaEngine.onFeedback fall back to the
+     * system-clock estimate it always used.
+     */
+    fun playedSampleTime(): Int? {
+        if (legacyAudioPath) return null
+        val track = track ?: return null
+        val origin = originRtpSample ?: return null
+        val latest = lastRtpSample ?: return null
+        verifyRtpClock(origin, latest)
+        if (!rtpClockVerified) return null
+        val playedFrames = track.playbackHeadPosition.toLong() and 0xffff_ffffL
+        return (origin.toLong() + playedFrames).toInt()
+    }
+
+    /**
+     * One decoded PCM frame per RTP sample is what every codec we negotiate produces, but check it
+     * against a couple of seconds of real traffic before trusting the mapping, and latch the answer
+     * so the reported position never switches clock domains mid-stream.
+     */
+    private fun verifyRtpClock(origin: Int, latest: Int) {
+        if (rtpClockVerified || rtpClockRejected) return
+        val spanned = (latest.toLong() - origin.toLong()) and 0xffff_ffffL
+        if (spanned < format.sampleRate * RTP_CLOCK_VERIFY_SECONDS) return
+        val decoded = totalWrittenFrames
+        if (decoded in (spanned * 90 / 100)..(spanned * 110 / 100)) {
+            rtpClockVerified = true
+            Log.i(TAG, "audio playout clock mapped to the DAC: frames=$decoded rtpSpan=$spanned")
+        } else {
+            rtpClockRejected = true
+            Log.w(TAG, "audio playout clock rejected frames=$decoded rtpSpan=$spanned; using system clock")
         }
     }
 
@@ -791,6 +866,12 @@ private class AudioRenderer(
     }
 
     private fun run() {
+        // Decoding and refilling the track share this thread with nothing else, but H.264/HEVC
+        // decode for the main screen and the cluster does. At the default priority the audio thread
+        // loses the CPU under load, the DAC drains before the next write lands, and the track
+        // underruns -- which is what "it stutters more when the picture is busy" looks like.
+        // Legacy mode keeps the default priority, i.e. what the thread ran at before this was added.
+        if (!legacyAudioPath) runCatching { Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO) }
         try {
             when (format.codec) {
                 AudioCodecKind.AAC_LC -> configureCodec(MediaFormat.MIMETYPE_AUDIO_AAC)
@@ -908,10 +989,12 @@ private class AudioRenderer(
         trackAttributes = built.audioAttributes
         val capacityBytes = built.bufferSizeInFrames * frameBytes
         startThresholdBytes = MediaAudioBuffer.startBytesFor(plan.startBytes, capacityBytes, PREBUFFER_WRITE_CHUNK_BYTES)
+        resumeThresholdBytes = MediaAudioBuffer.startBytesFor(plan.resumeBytes, capacityBytes, PREBUFFER_WRITE_CHUNK_BYTES)
         report("Audio: ready audioType=${format.audioType} codec=${format.codec} " +
             "rate=${format.sampleRate} channels=${format.channels} " +
             "route=$routeLabel " +
-            "bufferMs=${capacityBytes * 1000L / bytesPerSecond} startMs=${startThresholdBytes * 1000L / bytesPerSecond}")
+            "bufferMs=${capacityBytes * 1000L / bytesPerSecond} startMs=${startThresholdBytes * 1000L / bytesPerSecond} " +
+            "resumeMs=${resumeThresholdBytes * 1000L / bytesPerSecond}")
         Log.i(
             TAG,
             "audio track prepared type=${format.payloadType} audioType=${format.audioType} " +
@@ -1065,6 +1148,9 @@ private class AudioRenderer(
     private fun handle(packet: AudioPacket) {
         val rtp = packet.rtp
         val timestampUs = sampleTimestampUs(packet.sample)
+        if (originRtpSample == null) originRtpSample = packet.sample
+        lastRtpSample = packet.sample
+        packetsHandled++
         when (format.codec) {
             AudioCodecKind.LPCM -> writePcm(byteSwapS16(rtp.copyOfRange(12, rtp.size)))
             AudioCodecKind.AAC_LC -> {
@@ -1221,13 +1307,23 @@ private class AudioRenderer(
             lastPcmWriteNs = System.nanoTime()
             if (!playbackStarted) {
                 prebufferBytes += count
-                if (prebufferBytes >= startThresholdBytes) {
+                if (prebufferBytes >= startThreshold()) {
                     startPlayback(track)
                     Log.i(TAG, "audio playback started type=${format.payloadType}")
                 }
             }
         }
     }
+
+    /**
+     * The first start uses the configured cushion. A restart after a dry-out only needs enough audio
+     * to cover the next write, so a single network gap does not cost a silence as long as the whole
+     * setting -- that wait is what makes a larger buffer feel like rarer but longer stutters.
+     *
+     * Legacy mode always waits for the full cushion, which is the behaviour the setting had before.
+     */
+    private fun startThreshold(): Int =
+        if (rebufferCount == 0 || legacyAudioPath) startThresholdBytes else resumeThresholdBytes
 
     private fun startPlayback(track: AudioTrack) {
         underrunsAtPlaybackStart = track.underrunCount
@@ -1269,11 +1365,19 @@ private class AudioRenderer(
             previous?.let { (current - it) and 0xffff_ffffL }
         }
         val queuedFrames = playbackHeadFrames?.let { (totalWrittenFrames - it).coerceAtLeast(0L) }
+        // Reading the two cushions as time is what tells drift apart from a network gap: a buffer
+        // that walks in one direction over several windows is the clock, a buffer that jumps back is
+        // the link. Adding up both is the true end-to-end delay between the phone and the speaker.
+        val queueMs = averagePacketMillis()?.let { it * queue.size } ?: -1L
+        val trackQueuedMs = queuedFrames?.let { it * 1000L / format.sampleRate } ?: -1L
+        val outputLatencyMs = if (queueMs >= 0 && trackQueuedMs >= 0) queueMs + trackQueuedMs else -1L
         val line = "audio stats audioType=${format.audioType} channel=$mappedChannel " +
             "routeType=${currentTrack?.routedDevice?.type ?: -1} codec=${format.codec} " +
             "trackState=${currentTrack?.state ?: -1} playState=${currentTrack?.playState ?: -1} " +
             "sampleRate=${currentTrack?.sampleRate ?: format.sampleRate} " +
             "trackBufferFrames=${currentTrack?.bufferSizeInFrames ?: -1} " +
+            "queueMs=$queueMs trackQueuedMs=$trackQueuedMs outputLatencyMs=$outputLatencyMs " +
+            "playedSample=${playedSampleTime() ?: -1} " +
             "rx=${packetsReceived.getAndSet(0)} " +
             "dropped=${packetsDropped.getAndSet(0)} underruns=+${underruns - statsLastUnderruns} queue=${queue.size} " +
             "playing=$playbackStarted maxGapMs=${maxArrivalGapMs.getAndSet(0)} " +
@@ -1283,7 +1387,8 @@ private class AudioRenderer(
             "estimatedQueuedFrames=${queuedFrames ?: -1} writeErrors=$writeErrorsThisWindow " +
             "lastWriteError=${lastWriteErrorCode ?: "none"} zeroWrites=$zeroWritesThisWindow " +
             "partialWrites=$partialWritesThisWindow " +
-            "decoderDroppedTotal=$inputDropped outputBuffersTotal=$outputBuffers rebuffers=$rebufferCount ended=$force"
+            "decoderDroppedTotal=$inputDropped outputBuffersTotal=$outputBuffers rebuffers=$rebufferCount " +
+            "droppedOldestTotal=$droppedOldestPackets ended=$force"
         Log.i(STATS_TAG, line)
         report(line)
         statsLastUnderruns = underruns
@@ -1294,6 +1399,17 @@ private class AudioRenderer(
         zeroWritesThisWindow = 0
         partialWritesThisWindow = 0
         statsWindowStartNs = now
+    }
+
+    /** Mean RTP spacing of the packets handled so far, used to read a packet count as playback time. */
+    private fun averagePacketMillis(): Long? {
+        val origin = originRtpSample ?: return null
+        val latest = lastRtpSample ?: return null
+        val gaps = packetsHandled - 1
+        if (gaps < 1) return null
+        val spanned = (latest.toLong() - origin.toLong()) and 0xffff_ffffL
+        if (spanned <= 0) return null
+        return (spanned / gaps) * 1000L / format.sampleRate
     }
 
     private fun applyFadeIn(data: ByteArray, offset: Int, length: Int) {
@@ -1370,5 +1486,7 @@ private class AudioRenderer(
         const val STATS_TAG = "DiPlay-AudioStats"
         const val STATS_WINDOW_NS = 5_000_000_000L
         const val DECODED_BUFFER_LOG_INTERVAL = 50
+        /** Seconds of real traffic to measure before trusting the 1:1 RTP-to-PCM frame mapping. */
+        const val RTP_CLOCK_VERIFY_SECONDS = 2
     }
 }

@@ -45,7 +45,7 @@ object AirPlayInfoPlist {
             "modes" to modes(),
         )
         if (!config.disableAudioOutput) {
-            info["audioLatencies"] = audioLatencies()
+            info["audioLatencies"] = audioLatencies(config.audioOutputLatencyMicros)
             info["audioFormats"] = audioFormats(config.entertainmentSampleRate, config.microphone)
         }
         info["extendedFeatures"] = listOf("vocoderInfo", "enhancedRequestCarUI")
@@ -95,12 +95,12 @@ object AirPlayInfoPlist {
         ),
     )
 
-    private fun audioLatencies(): List<Map<String, Any?>> {
+    private fun audioLatencies(outputLatencyMicros: Long): List<Map<String, Any?>> {
         fun base(type: Int, audioType: String? = null): Map<String, Any?> {
             val entry = linkedMapOf<String, Any?>(
                 "type" to type,
                 "inputLatencyMicros" to 0L,
-                "outputLatencyMicros" to 0L,
+                "outputLatencyMicros" to outputLatencyMicros,
             )
             if (audioType != null) entry["audioType"] = audioType
             return entry

@@ -24,6 +24,13 @@ interface MediaSink {
     fun onAudioStarted(id: AudioStreamId, format: AudioFormat, firstSample: Int) {}
     fun onAudioRtp(id: AudioStreamId, format: AudioFormat, rtp: ByteArray, sample: Int) {}
     fun onAudioStopped(id: AudioStreamId) {}
+
+    /**
+     * RTP sample the speaker is playing right now, or null when the sink cannot map it.
+     * [onFeedback] answers the phone's `/feedback` poll with it so the phone paces its sending
+     * against the audio clock instead of a free-running system clock.
+     */
+    fun audioPlayedSample(id: AudioStreamId): Int? = null
     fun onMicrophoneStarted(id: AudioStreamId, config: MicrophoneConfig) {}
     fun onMicrophoneStopped(id: AudioStreamId) {}
     fun onIapMessage(bytes: ByteArray) {}
@@ -294,7 +301,21 @@ class CarPlayMediaEngine(
             )
             val firstSample = meta.firstSample
             val originNs = meta.originNs
-            if (firstSample != null && originNs != null) {
+            val streamId = AudioStreamId(meta.type, meta.format.audioType)
+            val playedSample = sink.audioPlayedSample(streamId)
+            // Prefer the audio clock. The phone uses this position to decide how fast to send, so a
+            // value derived from System.nanoTime() makes it pace against the system clock while the
+            // speaker runs on its own crystal: the cushion then walks in one direction until it
+            // underruns, however large it is.
+            if (playedSample != null) {
+                val latencySamples = Math.round(
+                    meta.playoutLatencyMs / 1000.0 * meta.format.sampleRate,
+                )
+                entry["streamConnectionID"] = unsignedPlistInteger(meta.connectionId ?: 0L)
+                entry["timestamp"] = session.syncedNtp()
+                entry["timestampRawNs"] = System.nanoTime()
+                entry["sampleTime"] = (playedSample.toLong() - latencySamples) and 0xffff_ffffL
+            } else if (firstSample != null && originNs != null) {
                 val nowNs = System.nanoTime()
                 val elapsedSec = Math.max(
                     0.0,

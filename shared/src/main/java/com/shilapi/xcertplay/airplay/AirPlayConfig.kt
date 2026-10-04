@@ -42,6 +42,8 @@ data class AirPlayConfig(
     val rightHandDrive: Boolean = false,
     val port: Int = 7000,
     val entertainmentSampleRate: Int = 48000,
+    /** Output latency (µs) advertised to the phone in /info; 0 keeps the historical behaviour. */
+    val audioOutputLatencyMicros: Long = 0L,
     val hevc: Boolean = false,
     val disableAudioOutput: Boolean = false,
     val microphone: Boolean = false,

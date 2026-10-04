@@ -2949,6 +2949,8 @@ class CarPlayHostActivity : ComponentActivity() {
             rightHandDrive = rightHandDrive,
             hevc = hevcEnabled,
             microphone = microphoneAvailable,
+            audioOutputLatencyMicros = if (AirPlayPersistence.loadDeclareAudioOutputLatency(this))
+                AirPlayPersistence.loadMediaBufferMillis(this) * 1000L else 0L,
             manufacturer = normalizedManufacturer(),
             model = normalizedModel(),
             oemLabel = oemLabel,
@@ -3127,6 +3129,7 @@ class CarPlayHostActivity : ComponentActivity() {
                 onScreenStreamStateChanged(controllerGeneration, type, active)
             },
             mediaBufferMillis = AirPlayPersistence.loadMediaBufferMillis(this),
+            legacyAudioPath = AirPlayPersistence.loadLegacyAudioPath(this),
             onAudioDiagnostic = { message ->
                 diagnosticLog?.append(formattedLogLine(message, System.currentTimeMillis()))
             },

@@ -58,6 +58,8 @@ object AirPlayPersistence {
     private const val KEY_OEM_LABEL = "oem_label"
     private const val KEY_FPS = "display_fps"
     private const val KEY_MEDIA_BUFFER_MS = "media_buffer_ms"
+    private const val KEY_LEGACY_AUDIO_PATH = "legacy_audio_path"
+    private const val KEY_DECLARE_AUDIO_OUTPUT_LATENCY = "declare_audio_output_latency"
     private const val KEY_CLUSTER_MAP = "cluster_map_enabled"
     private const val KEY_CENTER_MAP_OVERLAY = "center_map_overlay"
     private const val KEY_LAUNCHER_MAP_SHARING = "launcher_map_sharing"
@@ -401,6 +403,36 @@ object AirPlayPersistence {
     fun saveMediaBufferMillis(context: Context, millis: Int) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putInt(KEY_MEDIA_BUFFER_MS, com.shilapi.xcertplay.media.MediaAudioBuffer.sanitize(millis)).apply()
+    }
+
+    /**
+     * Play audio the way DiPlay did before the playout-clock work: report /feedback against the
+     * system clock, drop the newest packet on overflow, run the audio thread at default priority and
+     * refill the whole cushion after a dry-out. Kept as a switch so the two paths can be compared on
+     * the car without rebuilding; applies to the next connection.
+     */
+    fun loadLegacyAudioPath(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_LEGACY_AUDIO_PATH, false)
+
+    fun saveLegacyAudioPath(context: Context, legacy: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_LEGACY_AUDIO_PATH, legacy).apply()
+    }
+
+    /**
+     * Advertise a real, non-zero [KEY_MEDIA_BUFFER_MS]-sized output latency to the phone in /info
+     * instead of the historical 0. When the playout clock is reported against the DAC (§2.3 of
+     * docs/audio-stutter-analysis.md) this declaration lets the phone pre-send ahead of time.
+     * Experimental; applies to the next connection.
+     */
+    fun loadDeclareAudioOutputLatency(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_DECLARE_AUDIO_OUTPUT_LATENCY, false)
+
+    fun saveDeclareAudioOutputLatency(context: Context, declare: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_DECLARE_AUDIO_OUTPUT_LATENCY, declare).apply()
     }
 
     fun saveFps(context: Context, fps: Int) {
