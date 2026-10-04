@@ -23,6 +23,7 @@ scripts/probe/*.class
 scripts/probe/out*/
 scripts/probe/dexout*/
 scripts/probe/hud_dump/
+scripts/probe/hud_wip_archive/
 
 # OS files
 .DS_Store
