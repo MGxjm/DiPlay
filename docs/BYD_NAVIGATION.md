@@ -17,15 +17,16 @@ Enable BYD navigation in settings. In DiAuto it is opt-in under Navigation; in D
 DiLink 3.0 head units (Android 10, Qualcomm 6125, "1for2" cluster) have no SOME/IP service and ship the stock AMap adapter as `com.example.amapservice` instead of `com.byd.amapservice`. DiPlay sends it the same navigation broadcasts. That adapter shows preformatted text rather than the numeric extras, so DiPlay also sends `SEG_REMAIN_DIS_AUTO` ("250 m"), `ROUTE_REMAIN_DIS_AUTO` ("5.4 km"), `ROUTE_REMAIN_TIME_AUTO` ("10 min") and `ETA_TEXT` ("15:55"); without them the cluster shows -1. The cluster keeps its stock view until it is switched, so DiPlay also runs, through its adb shell, the calls the stock ClusterDebug app uses (`service call AutoContainer 2 i32 1000 i32 <command> s16 ""`):
 
 - While CarPlay guidance is active: 39, "simple navigation", for the native turn card.
-- While "CarPlay map on dashboard" shows its map window on the cluster: 17, "half-screen projection". The map window uses DiLink 3's projection display, `fission_bg_xdjaVirtualSurface` (1920x720, owned by `com.xdja.containerservice`). The map takes priority over the turn card.
+- While "CarPlay map on dashboard" shows its map window on the cluster: the projection command follows the instrument's navi mode. Small screen navi uses 17, "half-screen projection"; Full screen navi uses 16, "full-screen projection". 17 alone does not bring the projection up while the instrument is in Full screen mode. The map window uses DiLink 3's projection display, `fission_bg_xdjaVirtualSurface` (1920x720, owned by `com.xdja.containerservice`). The map takes priority over the turn card.
 - When both end: 18, "projection off", only if DiPlay changed the mode.
 
 Approve DiPlay's ADB access once with "Check ADB access"; without it the broadcasts are still sent but the cluster keeps its stock view. The DiLink 5 "Dashboard map only in Small and Full navi" option does not apply: DiLink 3 does not report the wheel-menu mode.
 
 These commands run on both DiLink 3 and DiLink 4 head units, including while the ADB cluster route
-is selected: they open the instrument's projection window. The instrument keeps that window in its
-previous layout until it is opened again, so every wheel switch to Full screen navi closes it (18)
-and re-applies 17 once; the full layout then takes effect. The recovery marker is durable before a
+is selected: they open the instrument's projection window. DiPlay reads the instrument's navi mode
+every second and keeps the projection command in sync with it (16 for Full, 17 for Small). Every
+wheel switch to Full screen navi also closes the projection (18) and re-applies 16 once, so the
+instrument lays the window out in the full layout. The recovery marker is durable before a
 command; failed restoration retains it and blocks new output until stock mode is restored.
 
 The projection display does not exist after the car starts until the cluster has projected once. When DiPlay opens with BYD navigation on and the display is missing, it runs 16 (projection on), 35 (Di4.0 mode, which creates the display) and 18, as BYD DashCast does; the cluster shows an empty projection area for about six seconds. The display then stays until the car restarts. The map window selects this display through the same exact-name and 1920x720 check as DiLink 4.0. If a CarPlay session started before the display existed, DiPlay shows the map window when the display appears and reconnects once so the iPhone sends the 1920x720 cluster stream.

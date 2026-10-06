@@ -32,14 +32,18 @@ class DiLink3ClusterRecoveryTest {
         Shell.commands.clear()
         Shell.response = { "Result: Parcel(00000000 00000000 '........')" }
         ReflectionHelpers.setField(output, "session", null)
-        ReflectionHelpers.setField(output, "desiredMode", null)
+        ReflectionHelpers.setField(output, "mapShown", false)
+        ReflectionHelpers.setField(output, "guidanceActive", false)
+        ReflectionHelpers.setField(output, "instrumentMode", null)
         ReflectionHelpers.setField(output, "context", null)
     }
 
     @After fun cleanup() {
         drain()
         ReflectionHelpers.setField(output, "session", null)
-        ReflectionHelpers.setField(output, "desiredMode", null)
+        ReflectionHelpers.setField(output, "mapShown", false)
+        ReflectionHelpers.setField(output, "guidanceActive", false)
+        ReflectionHelpers.setField(output, "instrumentMode", null)
         ReflectionHelpers.setField(output, "context", null)
     }
 

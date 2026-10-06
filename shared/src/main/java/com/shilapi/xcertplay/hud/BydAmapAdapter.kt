@@ -22,6 +22,9 @@ internal enum class BydAmapAdapter(val packageName: String, val needsSimpleNavig
  */
 internal object BydDiLink3ClusterMode {
     enum class Mode(val info: Int) {
+        // Full-screen projection: the map fills the instrument. Used while the driver picked
+        // Full screen navi on the wheel; 17 alone does not bring the projection up in that mode.
+        FULL_PROJECTION(16),
         // Half screen keeps the cluster's own speed and status readouts beside the map.
         PROJECTION(17),
         SIMPLE_NAVIGATION(39),
@@ -30,8 +33,15 @@ internal object BydDiLink3ClusterMode {
         val command: String get() = "service call AutoContainer 2 i32 1000 i32 $info s16 \"\""
     }
 
-    /** The mode to request now, or null while DiPlay has never changed the stock mode. */
-    fun desired(mapShown: Boolean, guidanceActive: Boolean, requested: Mode?): Mode? = when {
+    /**
+     * The mode to request now, or null while DiPlay has never changed the stock mode. The
+     * projection command follows the instrument's navi mode: Full screen navi needs 16, Small
+     * screen navi (and any unknown mode) uses 17.
+     */
+    fun desired(mapShown: Boolean, guidanceActive: Boolean, requested: Mode?,
+        instrumentFullScreen: Boolean,
+    ): Mode? = when {
+        mapShown && instrumentFullScreen -> Mode.FULL_PROJECTION
         mapShown -> Mode.PROJECTION
         guidanceActive -> Mode.SIMPLE_NAVIGATION
         requested != null -> Mode.STOCK

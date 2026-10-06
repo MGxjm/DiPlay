@@ -17,8 +17,16 @@ internal object BydDiLink3ClusterOutput {
     private val retryStarted = AtomicBoolean()
     private val applyQueued = AtomicBoolean()
     @Volatile private var context: Context? = null
-    @Volatile private var desiredMode: BydDiLink3ClusterMode.Mode? = null
+    @Volatile private var mapShown = false
+    @Volatile private var guidanceActive = false
+    @Volatile private var instrumentMode: BydClusterNaviMode? = null
     private var session: DiLink3ClusterModeSession? = null
+
+    /** The projection command for the current map/guidance state and instrument navi mode. */
+    private fun desiredMode(): BydDiLink3ClusterMode.Mode? = BydDiLink3ClusterMode.desired(
+        mapShown, guidanceActive, null,
+        instrumentFullScreen = instrumentMode == BydClusterNaviMode.FULL,
+    )
 
     /** Also called when the setting is off, so an interrupted output is always recoverable. */
     fun restoreIfNeeded(appContext: Context) {
@@ -27,11 +35,19 @@ internal object BydDiLink3ClusterOutput {
     }
 
     fun setDesired(appContext: Context, mapShown: Boolean, guidanceActive: Boolean) {
-        desiredMode = when {
-            mapShown -> BydDiLink3ClusterMode.Mode.PROJECTION
-            guidanceActive -> BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION
-            else -> null
-        }
+        this.mapShown = mapShown
+        this.guidanceActive = guidanceActive
+        initialize(appContext)
+        requestApply()
+    }
+
+    /**
+     * The instrument navi mode the driver picked on the wheel. DiPlay's projection command follows
+     * it: Full screen navi needs the full-screen projection (16), Small screen navi uses the
+     * half-screen one (17). Called from the cluster-map ticker whenever the mode changes.
+     */
+    fun setInstrumentMode(appContext: Context, mode: BydClusterNaviMode?) {
+        instrumentMode = mode
         initialize(appContext)
         requestApply()
     }
@@ -41,7 +57,7 @@ internal object BydDiLink3ClusterOutput {
         worker.execute {
             val app = context ?: return@execute
             val prepared = runCatching {
-                state(app).prepareDisplay(displayPresent, { desiredMode },
+                state(app).prepareDisplay(displayPresent, { desiredMode() },
                     { BydOutputSettings.enabled(app) }, { Thread.sleep(3_000L) })
             }.onFailure { Log.w(TAG, "Cluster preparation will recover", it) }.getOrDefault(false)
             Log.i(TAG, "DiLink 3 cluster display prepared=$prepared")
@@ -58,7 +74,7 @@ internal object BydDiLink3ClusterOutput {
         initialize(appContext)
         worker.execute {
             val app = context ?: return@execute
-            val mode = desiredMode ?: return@execute
+            val mode = desiredMode() ?: return@execute
             runCatching { state(app).refresh(mode) }
                 .onFailure { Log.w(TAG, "Cluster projection refresh will retry", it) }
                 .onSuccess { refreshed ->
@@ -77,19 +93,19 @@ internal object BydDiLink3ClusterOutput {
     private fun requestApply() {
         if (!applyQueued.compareAndSet(false, true)) return
         worker.execute {
-            val attempted = desiredMode
+            val attempted = desiredMode()
             try { applyLatest() }
             finally {
                 applyQueued.set(false)
                 // A request that changed during a blocking ADB call must still be applied.
-                if (attempted != desiredMode) requestApply()
+                if (attempted != desiredMode()) requestApply()
             }
         }
     }
 
     private fun applyLatest() {
         val app = context ?: return
-        runCatching { state(app).apply(desiredMode) }
+        runCatching { state(app).apply(desiredMode()) }
             .onFailure { Log.w(TAG, "Cluster mode will retry", it) }
             .onSuccess { accepted -> if (!accepted) Log.w(TAG, "Cluster mode pending recovery/retry") }
     }
