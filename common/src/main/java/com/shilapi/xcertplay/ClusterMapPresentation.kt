@@ -203,10 +203,18 @@ internal class ClusterMapPresentation(
             val adbOnly: Boolean = false,
         )
 
+        // Match either "mBaseDisplayInfo=DisplayInfo{...}" or a standalone "DisplayInfo{...}".
         private val DISPLAY_INFO_LINE = Regex(
-            """mBaseDisplayInfo=DisplayInfo\{\s*"([^"]+)"\s*,\s*displayId\s+(\d+)\b"""
+            """(?:mBaseDisplayInfo=)?DisplayInfo\{\s*"([^"]+)"\s*,\s*displayId\s+(\d+)\b"""
         )
         private val REAL_SIZE = Regex("""\breal\s+(\d+)\s+x\s+(\d+)\b""")
+
+        /** Result of an ADB display probe: the ADB access state and any displays found. */
+        data class AdbDisplayProbe(
+            val access: LocalAdb.Access,
+            val displays: List<DisplayInfo>,
+            val rawDump: String = "",
+        )
 
         /** Parse every logical display from `dumpsys display` output. */
         internal fun parseDisplaysFromDump(dump: String): List<DisplayInfo> {
@@ -226,16 +234,24 @@ internal class ClusterMapPresentation(
         }
 
         /**
+         * Probe ADB for displays. Returns the access state so the UI can tell the user whether
+         * ADB authorization is needed.
+         */
+        fun adbProbeDisplays(context: Context): AdbDisplayProbe = runCatching {
+            LocalAdb(AdbKeys.load(context)).use { adb ->
+                val access = adb.connect(mayAsk = false)
+                if (access != LocalAdb.Access.READY) return AdbDisplayProbe(access, emptyList())
+                val dump = adb.shell("dumpsys display").orEmpty()
+                AdbDisplayProbe(access, parseDisplaysFromDump(dump), dump)
+            }
+        }.getOrDefault(AdbDisplayProbe(LocalAdb.Access.UNREACHABLE, emptyList()))
+
+        /**
          * All displays visible to the ADB shell (which can see private cluster displays that
          * `DisplayManager` hides from third-party apps). Returns an empty list when ADB is
          * not authorized.
          */
-        fun adbListDisplays(context: Context): List<DisplayInfo> = runCatching {
-            LocalAdb(AdbKeys.load(context)).use { adb ->
-                if (adb.connect(mayAsk = false) != LocalAdb.Access.READY) return emptyList()
-                parseDisplaysFromDump(adb.shell("dumpsys display").orEmpty())
-            }
-        }.getOrDefault(emptyList())
+        fun adbListDisplays(context: Context): List<DisplayInfo> = adbProbeDisplays(context).displays
 
         /**
          * All currently available secondary displays. Merges displays visible to the app via
@@ -320,8 +336,12 @@ internal class ClusterMapPresentation(
             val presentations = context.getSystemService(DisplayManager::class.java)
                 ?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).orEmpty()
             appendLine("presentationDisplayIds=${presentations.joinToString { it.displayId.toString() }}")
-            val adbDisplays = adbListDisplays(context)
-            appendLine("adbDisplays=${adbDisplays.joinToString { "${it.displayId}:${it.name} ${it.width}x${it.height}" }}")
+            val adbProbe = adbProbeDisplays(context)
+            appendLine("adbAccess=${adbProbe.access}")
+            appendLine("adbDisplays=${adbProbe.displays.joinToString { "${it.displayId}:${it.name} ${it.width}x${it.height}" }}")
+            if (adbProbe.access == LocalAdb.Access.READY && adbProbe.displays.isEmpty()) {
+                appendLine("adbDumpPreview=${adbProbe.rawDump.lineSequence().take(40).joinToString(" | ")}")
+            }
             val manual = AirPlayPersistence.loadManualClusterDisplay(context)
             appendLine("manualClusterDisplay=${manual?.let { "${it.name} ${it.width}x${it.height}" } ?: "none"}")
             val manualInfo = manualDisplayInfo(context)

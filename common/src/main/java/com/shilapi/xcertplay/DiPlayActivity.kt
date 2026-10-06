@@ -720,11 +720,23 @@ class DiPlayActivity : ComponentActivity() {
                     picker.setOnClickListener {
                         val displays = ClusterMapPresentation.listPresentationDisplays(this@DiPlayActivity)
                         if (displays.isEmpty()) {
-                            AlertDialog.Builder(this@DiPlayActivity)
+                            val probe = ClusterMapPresentation.adbProbeDisplays(this@DiPlayActivity)
+                            val msg = when (probe.access) {
+                                com.shilapi.xcertplay.adb.LocalAdb.Access.READY ->
+                                    getString(R.string.cluster_display_none_adb_ready)
+                                com.shilapi.xcertplay.adb.LocalAdb.Access.NOT_APPROVED ->
+                                    getString(R.string.cluster_display_none_adb_unapproved)
+                                com.shilapi.xcertplay.adb.LocalAdb.Access.UNSUPPORTED ->
+                                    getString(R.string.cluster_display_none_adb_unsupported)
+                                else -> getString(R.string.cluster_display_none_adb_unreachable)
+                            }
+                            val builder = AlertDialog.Builder(this@DiPlayActivity)
                                 .setTitle(title)
-                                .setMessage(R.string.cluster_display_none)
-                                .setPositiveButton(R.string.close, null)
-                                .show()
+                                .setMessage(msg)
+                            if (probe.access != com.shilapi.xcertplay.adb.LocalAdb.Access.READY) {
+                                builder.setPositiveButton(R.string.adb_cluster_authorize) { _, _ -> authorizeClusterRouting() }
+                            }
+                            builder.setNegativeButton(R.string.close, null).show()
                             return@setOnClickListener
                         }
                         val saved = AirPlayPersistence.loadManualClusterDisplay(this@DiPlayActivity)
