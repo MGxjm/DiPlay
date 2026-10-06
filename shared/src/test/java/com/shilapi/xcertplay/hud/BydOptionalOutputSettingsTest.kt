@@ -2,6 +2,7 @@ package com.shilapi.xcertplay.hud
 
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import org.junit.Assert.*
@@ -28,7 +29,10 @@ class BydOptionalOutputSettingsTest {
         assertEquals(BydOemClusterHold.COMPONENT, BydOutputSettings.oemClusterHold(app))
     }
 
-    @Test fun installedStockReceiverDoesNotEnableUnverifiedDilink4Hud() {
+    @Test fun unconfiguredReceiverDoesNotEnableHudRegardlessOfFingerprint() {
+        // The fingerprint gate was lifted: HUD now activates on any system-signed, exported,
+        // permission-less BYD HUD receiver. A receiver package that is merely installed, with no
+        // registered <receiver> element or signers, still does not enable HUD.
         val app = RuntimeEnvironment.getApplication()
         val knownApp = object : ContextWrapper(app) {
             override fun getPackageName(): String = "com.shihab.diplay"
@@ -44,6 +48,25 @@ class BydOptionalOutputSettingsTest {
         shadowOf(app.packageManager).installPackage(info)
         assertFalse(BydStandaloneHudOutput.available(knownApp))
         assertTrue(BydStandaloneHudOutput.diagnostics(knownApp).contains("standaloneHudAvailable=false"))
+    }
+
+    @Test fun enabledExportedReceiverEnablesHudWithoutTheOldModelChecks() {
+        // Every model gate is lifted — firmware, receiver version, signing certificate, system-app
+        // flag and receiver permission. Only an enabled, exported receiver element enables HUD.
+        val app = RuntimeEnvironment.getApplication()
+        val knownApp = object : ContextWrapper(app) {
+            override fun getPackageName(): String = "com.shihab.diplay"
+        }
+        shadowOf(app.packageManager).installPackage(PackageInfo().apply {
+            packageName = "com.byd.clusterdebug"
+            applicationInfo = ApplicationInfo().apply { packageName = "com.byd.clusterdebug" }
+            receivers = arrayOf(ActivityInfo().apply {
+                name = "com.byd.clusterdebug.BroadcastReceiverCAN"
+                enabled = true
+                exported = true
+            })
+        })
+        assertTrue(BydStandaloneHudOutput.available(knownApp))
     }
 
 }

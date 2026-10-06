@@ -59,10 +59,12 @@ class ClusterMapPresentationTest {
             ShadowDisplayManager.removeDisplay(other)
         }
     }
-    @Test fun dilink4MeasuredProjectionIsSelected() {
+    @Test fun dilink4MeasuredProjectionIsNotSelectedByPublicRoute() {
+        // DiLink 4/3 no longer grabs an unrelated public display: when no DiLink 5 projection
+        // surface is present, findDisplay() returns null so the ADB route takes over instead.
         val id = display(DiLink4ClusterDisplay.NAME, "w1920dp-h720dp-mdpi")
         try {
-            assertEquals(id, ClusterMapPresentation.findDisplay(context)?.displayId)
+            assertNull(ClusterMapPresentation.findDisplay(context))
         } finally {
             ShadowDisplayManager.removeDisplay(id)
         }
@@ -108,7 +110,10 @@ class ClusterMapPresentationTest {
             assertTrue(report.contains("clusterEnabled=false"))
             assertTrue(report.contains("navigationReceiverAvailable=false"))
             assertTrue(report.contains("1920x720"))
-            assertTrue(report.contains("selectedCluster=$id:${DiLink4ClusterDisplay.NAME}"))
+            // DiLink 4 public displays are not selected by the public route anymore; the
+            // ADB route handles them. The display is still listed in allDisplays.
+            assertTrue(report.contains("selectedCluster=none"))
+            assertTrue(report.contains("$id:${DiLink4ClusterDisplay.NAME}"))
         } finally {
             ShadowDisplayManager.removeDisplay(id)
             AirPlayPersistence.saveClusterMapEnabled(context, enabled)

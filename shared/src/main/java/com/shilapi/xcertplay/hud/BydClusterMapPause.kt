@@ -50,16 +50,31 @@ internal object BydClusterMapPause {
     private fun tick() {
         val app = context ?: return
         val control = streamControl
-        if (control == null || !clusterMapShown || !BydOutputSettings.clusterStreamPause(app)) {
+        if (control == null || !clusterMapShown) {
             control?.invoke(true)
             shell.close()
             lastMode = null
+            BydClusterScreenStatus.reset()
             return
         }
+        // The mode is read regardless of the stream-pause setting: the instrument gates its
+        // projection window on INSTRUMENT_SEND_NAVI_STATUS_SET, which only the stock map used to
+        // write, so DiPlay re-announces it on every mode change (see BydClusterScreenStatus).
         val mode = readMode(app)
         if (mode != lastMode) {
+            val previous = lastMode
             lastMode = mode
             Log.i(TAG, "cluster mode ${mode?.label ?: "unknown"}")
+            BydClusterScreenStatus.onModeChanged(app, mode)
+            // Returning to the small layout re-lays out by itself; entering the full one does
+            // not, so reopen the projection once when the wheel switches to it.
+            if (previous != null && previous != BydClusterNaviMode.FULL && mode == BydClusterNaviMode.FULL) {
+                BydDiLink3ClusterOutput.refreshProjection(app)
+            }
+        }
+        if (!BydOutputSettings.clusterStreamPause(app)) {
+            control(true)
+            return
         }
         // An unknown mode keeps the map streaming, as without ADB.
         control(mode?.showsMap != false)

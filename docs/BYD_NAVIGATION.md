@@ -4,7 +4,7 @@ Phone navigation arrows, next-turn distance and street names can appear on suppo
 
 ## Validated windshield path
 
-Live guidance and street names were physically confirmed in both DiAuto and DiPlay on DiLink5.1 / Android13, firmware `BYD-AUTO/IVI/IVI:13/TP1A.220624.014/eng.build20260722.221155:user/release-keys`. The standalone output is restricted to that firmware and the verified stock receiver version10601004/signing certificate. Other firmware is not implicitly enabled by this result. Existing cluster/SOME-IP outputs remain available on supported factory services; the DiPlay contributor independently reported DiLink5.0 cluster/HUD operation.
+Live guidance and street names were physically confirmed in both DiAuto and DiPlay on DiLink5.1 / Android13, firmware `BYD-AUTO/IVI/IVI:13/TP1A.220624.014/eng.build20260722.221155:user/release-keys`. The standalone output no longer requires that firmware or the previously verified stock receiver version 10601004 / signing certificate: any head unit that exposes an enabled, exported ClusterDebug receiver activates it, though other firmware has not been vehicle-verified. Existing cluster/SOME-IP outputs remain available on supported factory services, and the song/lyrics line is also carried on the SOME/IP road-name field; the DiPlay contributor independently reported DiLink5.0 cluster/HUD operation.
 
 The app sends navigation-only broadcasts to the stock ClusterDebug receiver as its normal Android UID. Vendor output runs outside phone control callbacks. Street text uses the installed HAL's UTF-16LE chunk protocol, capped at48 UTF-16 units without splitting a surrogate pair. Output logs exclude street text.
 

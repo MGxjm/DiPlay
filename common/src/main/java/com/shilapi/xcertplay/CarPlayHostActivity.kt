@@ -994,7 +994,7 @@ class CarPlayHostActivity : ComponentActivity() {
                         appendLog("Cluster map: fixed 1920x720 stream; layout=$theme viewport=$plan")
                     }
                 }
-                if (DiLink4ClusterDisplay.matches(display.name, size.x, size.y)) {
+                if (DiLink4ClusterDisplay.matches(display.name)) {
                     return DiLink4ClusterDisplay.streamConfig(
                         AirPlayPersistence.loadClusterContent(this),
                         AirPlayPersistence.loadClusterMarkerHorizontalStep(this),

@@ -25,6 +25,16 @@ internal class DiLink3ClusterModeSession(
         return accepted
     }
 
+    /**
+     * Reopens the current mode: close the projection, then apply the mode again. The instrument
+     * only re-lays out the projection window when it is opened, so this is how a new wheel
+     * selection takes effect.
+     */
+    fun refresh(mode: BydDiLink3ClusterMode.Mode?): Boolean {
+        if (!restoreStock()) return false
+        return apply(mode)
+    }
+
     /** Failure of any preparation step must compensate the earlier full-screen projection. */
     fun prepareDisplay(
         displayPresent: () -> Boolean,

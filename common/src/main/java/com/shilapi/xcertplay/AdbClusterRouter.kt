@@ -10,16 +10,90 @@ internal object AdbClusterRouter {
     private const val REPORT = "adb-cluster-route.txt"
     data class Result(val success: Boolean, val report: String)
 
+    /**
+     * A cluster display the user picked manually in settings. Matched by name and geometry, not by
+     * the numeric id: the id is per-boot, the name and panel size survive reboots. Bypasses the
+     * automatic owner/geometry checks on purpose — a manual pick is trusted as-is.
+     */
+    data class DisplayTarget(val name: String, val width: Int, val height: Int) {
+        fun encode(): String = listOf(width.toString(), height.toString(), name).joinToString(SEP)
+        fun describe(): String = "$name ${width}x$height"
+
+        companion object {
+            private const val SEP = "|"
+            fun parse(encoded: String?): DisplayTarget? {
+                if (encoded.isNullOrBlank()) return null
+                val parts = encoded.split(SEP, limit = 3)
+                val width = parts.getOrNull(0)?.toIntOrNull() ?: return null
+                val height = parts.getOrNull(1)?.toIntOrNull() ?: return null
+                val name = parts.getOrNull(2)?.takeIf { it.isNotBlank() } ?: return null
+                return DisplayTarget(name, width, height)
+            }
+        }
+    }
+
+    /** One logical display parsed from `dumpsys display`, for the settings picker. */
+    data class DisplayCandidate(val id: Int, val name: String, val width: Int, val height: Int,
+        val owner: String = "")
+
+    /** Classification shown next to each display in the settings picker. */
+    enum class DisplayClass { MAIN, DASHBOARD, WIDGET, OTHER }
+
+    /**
+     * Classifies a discovered display for the picker. The main display (id 0) is never
+     * selectable; a BYD/XDJA projection surface, whatever its resolution, is the recommended
+     * dashboard target; small surfaces owned by non-BYD packages are suspected third-party
+     * desktop widgets. Nothing here prevents a manual pick — the markers only advise.
+     */
+    fun classify(candidate: DisplayCandidate): DisplayClass {
+        if (candidate.id == 0) return DisplayClass.MAIN
+        if (DiLink4ClusterDisplay.matches(candidate.name)) return DisplayClass.DASHBOARD
+        val smallArea = candidate.width * candidate.height < DiLink4ClusterDisplay.MIN_WIDTH * DiLink4ClusterDisplay.MIN_HEIGHT
+        val bydOwner = candidate.owner.startsWith("com.xdja.") || candidate.owner.startsWith("com.byd.")
+        if (smallArea && !bydOwner) return DisplayClass.WIDGET
+        return DisplayClass.OTHER
+    }
+
     /** Existing public cluster displays always win, even when the experimental switch is saved. */
     fun enabled(context: Context): Boolean = AirPlayPersistence.loadAdbClusterEnabled(context) &&
-        !DiLink51ClusterLayout.supported() && ClusterMapPresentation.findDisplay(context) == null
+        !DiLink51ClusterLayout.diLink5Route(context) && ClusterMapPresentation.findDisplay(context) == null
+
+    /** Every base logical display in a `dumpsys display` dump, whatever owns it. */
+    internal fun candidates(dump: String): List<DisplayCandidate> = dump.lineSequence().mapNotNull { line ->
+        if (!line.contains("mBaseDisplayInfo=DisplayInfo{\"")) return@mapNotNull null
+        val name = Regex("mBaseDisplayInfo=DisplayInfo\\{\"([^\"]+?), displayId \\d+\"")
+            .find(line)?.groupValues?.get(1) ?: return@mapNotNull null
+        val size = Regex("\\breal (\\d+) x (\\d+)\\b").find(line) ?: return@mapNotNull null
+        val width = size.groupValues[1].toIntOrNull() ?: return@mapNotNull null
+        val height = size.groupValues[2].toIntOrNull() ?: return@mapNotNull null
+        val id = Regex("displayId (\\d+)\"").find(line)?.groupValues?.get(1)?.toIntOrNull() ?: return@mapNotNull null
+        val owner = Regex("\\bowner (\\S+) \\(uid \\d+\\)").find(line)?.groupValues?.get(1).orEmpty()
+        DisplayCandidate(id, name, width, height, owner)
+    }.distinct().toList()
+
+    /**
+     * The display to launch the cluster activity on: the manually picked [override] when it is
+     * present in the dump, otherwise the automatic BYD projection match.
+     */
+    internal fun resolveDisplay(dump: String, override: DisplayTarget?): Int? {
+        if (override != null) {
+            candidates(dump).firstOrNull {
+                it.name == override.name && it.width == override.width && it.height == override.height
+            }?.id?.let { return it }
+        }
+        return displayId(dump)
+    }
 
     // Match only the base logical display, not a device's layer-stack number or override record.
+    // The name identifies BYD's whole cluster projection family; the panel resolution differs
+    // between models and firmware, so it takes no part in the match.
     internal fun displayId(dump: String): Int? {
         val candidates = dump.lineSequence().mapNotNull { line ->
-            if (!line.contains("mBaseDisplayInfo=DisplayInfo{\"${DiLink4ClusterDisplay.NAME}, displayId ") ||
-                !Regex("\\breal 1920 x 720\\b").containsMatchIn(line) ||
-                !line.contains("owner com.xdja.containerservice (uid 1000)")) return@mapNotNull null
+            if (!line.contains("mBaseDisplayInfo=DisplayInfo{\"")) return@mapNotNull null
+            if (!line.contains("owner com.xdja.containerservice (uid 1000)")) return@mapNotNull null
+            val name = Regex("mBaseDisplayInfo=DisplayInfo\\{\"([^\"]+?), displayId \\d+\"")
+                .find(line)?.groupValues?.get(1) ?: return@mapNotNull null
+            if (!DiLink4ClusterDisplay.matches(name)) return@mapNotNull null
             Regex("displayId (\\d+)\"").find(line)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
         }.distinct().toList()
         return candidates.singleOrNull()
@@ -66,8 +140,14 @@ internal object AdbClusterRouter {
                     val access = adb.connect(mayAsk = false)
                     appendLine("adbAccess=$access")
                     if (access != LocalAdb.Access.READY) return@use
-                    val display = displayId(adb.shell("dumpsys display").orEmpty())
+                    val dump = adb.shell("dumpsys display").orEmpty()
+                    val override = AirPlayPersistence.loadClusterDisplayOverride(context)
+                    val display = resolveDisplay(dump, override)
+                    AirPlayPersistence.saveClusterDisplayCandidates(context, candidates(dump).map {
+                        DisplayTarget(it.name, it.width, it.height)
+                    })
                     appendLine("routeTarget=${display ?: "none"}")
+                    appendLine("displayOverride=${override?.describe() ?: "auto"}")
                     if (display == null || !enabled(context) || !prepare(display)) return@use
                     val held = !holdStockMap || com.shilapi.xcertplay.hud.BydOemClusterNavi.holdForLaunch(context, token) {
                         enabled(context) && prepare(display)
@@ -92,6 +172,18 @@ internal object AdbClusterRouter {
         LocalAdb(AdbKeys.load(context)).use { adb ->
             if (adb.connect(mayAsk = false) != LocalAdb.Access.READY) null
             else activityDisplay(adb.shell("dumpsys activity activities").orEmpty(), context.packageName, task)
+        }
+    }.getOrNull()
+
+    /**
+     * Reads the head unit's current display list for the settings picker. Blocking; call off the
+     * UI thread. Null only when ADB is not authorized or unreachable; an empty list means the read
+     * returned no displays and must not be reported as an authorization problem.
+     */
+    fun scan(context: Context): List<DisplayCandidate>? = runCatching {
+        LocalAdb(AdbKeys.load(context)).use { adb ->
+            if (adb.connect(mayAsk = false) != LocalAdb.Access.READY) null
+            else candidates(adb.shell("dumpsys display").orEmpty())
         }
     }.getOrNull()
 

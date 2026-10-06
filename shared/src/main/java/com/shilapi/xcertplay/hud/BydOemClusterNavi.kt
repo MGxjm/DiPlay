@@ -21,6 +21,19 @@ object BydOemClusterNavi {
     fun applicable(context: Context): Boolean =
         runCatching { context.packageManager.getPackageInfo(STOCK_MAP, 0) }.isSuccess
 
+    /**
+     * Re-enable the stock map (component and package) and clear any recovery journal. Used when
+     * the driver switches the Gaode setting to OFF, so a previous long-term disable is undone.
+     * Blocking, for the ADB routing worker only; never call from the Android main thread.
+     */
+    fun restoreStockMap(context: Context) {
+        val app = context.applicationContext
+        worker.execute {
+            runCatching { state(app).restoreStockMap() }
+                .onFailure { Log.w(TAG, "Stock-map restore failed", it) }
+        }
+    }
+
     /** Blocking, for the ADB routing worker only; never call from the Android main thread. */
     fun holdForLaunch(context: Context, lease: String, current: () -> Boolean): Boolean {
         val app = context.applicationContext

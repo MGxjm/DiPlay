@@ -161,7 +161,7 @@ internal class ClusterMapPresentation(
     companion object {
         const val TAG = "DiPlay-Cluster"
 
-        /** Keep the 5/5.1 selection order, then try the measured DiLink 4 projection display. */
+        /** Keep the 5/5.1 selection order. DiLink 4/3 falls back to the ADB route, not a public display. */
         fun findDisplay(context: Context, theme: DiLink51ClusterLayout.Theme = DiLink51ClusterLayout.theme(context)): Display? {
             val displays = context.getSystemService(DisplayManager::class.java)
                 ?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION) ?: return null
@@ -169,12 +169,9 @@ internal class ClusterMapPresentation(
                 displays.map { it.name }, android.os.Build.FINGERPRINT, theme,
             )
             if (name == null) {
-                // Never replace a missing 5.1 side layer with a full-screen display.
-                if (DiLink51ClusterLayout.supported()) return null
-                return displays.firstOrNull { display ->
-                    val size = sizeOf(display)
-                    DiLink4ClusterDisplay.matches(display.name, size.x, size.y)
-                }
+                // No DiLink 5 projection surface: leave the public route empty so the DiLink 4/3
+                // ADB route takes over instead of grabbing an unrelated public display.
+                return null
             }
             return displays.firstOrNull { it.name == name }?.takeIf {
                 if (!DiLink51ClusterLayout.supported()) true else {

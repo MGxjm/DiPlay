@@ -48,7 +48,16 @@ class DiLink4ClusterDisplayTest {
     }
 
     @Test fun similarDisplayNamesAreNotAccepted() {
-        assertFalse(DiLink4ClusterDisplay.matches("shared_${DiLink4ClusterDisplay.NAME}_0", 1920, 720))
-        assertFalse(DiLink4ClusterDisplay.matches("Passenger display", 1920, 720))
+        assertFalse(DiLink4ClusterDisplay.matches("shared_${DiLink4ClusterDisplay.NAME}_0"))
+        assertFalse(DiLink4ClusterDisplay.matches("Passenger display"))
+        assertFalse(DiLink4ClusterDisplay.matches("main_screen"))
+    }
+
+    @Test fun theProjectionFamilyIsAcceptedWhateverItsResolution() {
+        // The name alone decides: the panel resolution differs between models and firmware.
+        assertTrue(DiLink4ClusterDisplay.matches(DiLink4ClusterDisplay.NAME))
+        assertTrue(DiLink4ClusterDisplay.matches("fission_bg_XDJAScreenProjection"))
+        assertTrue(DiLink4ClusterDisplay.matches("Fission_bg_xdjaVirtualSurface_1"))
+        assertTrue(DiLink4ClusterDisplay.matches("fission_cluster_display"))
     }
 }

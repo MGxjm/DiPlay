@@ -48,10 +48,13 @@ class AdbClusterSelectionTest {
         finally { ShadowDisplayManager.removeDisplay(id) }
     }
 
-    @Test fun verifiedDilink51NeverFallsBackToAdbForAMissingSideLayer() {
+    @Test fun verifiedDilink51FallsBackToAdbWhenNoProjectionSurfaceIsPresent() {
+        // Routing is now keyed on the projection surface name, not the firmware fingerprint.
+        // DiLink 5.1 firmware with no XDJA Screen Projection display exposed still falls back
+        // to the DiLink 4 ADB route; only a live DiLink 5 projection surface takes priority.
         ShadowBuild.setFingerprint(DiLink51ClusterLayout.FINGERPRINT)
         AirPlayPersistence.saveAdbClusterEnabled(app, true)
-        assertFalse(AdbClusterRouter.enabled(app))
+        assertTrue(AdbClusterRouter.enabled(app))
     }
 
     @Test fun absentPrivateTargetKeepsTheVirtualStreamEvenWhenAdbIsEnabled() {

@@ -43,11 +43,30 @@ class OemClusterHoldSessionTest {
         }
     }
 
-    @Test fun diskFailurePreventsAnyOemWrite() {
+    @Test fun diskFailurePreventsAnyComponentOemWrite() {
         val r = Rig().apply { journalWritable = false }
-        assertFalse(r.session().acquire(BydOemClusterHold.PACKAGE, "one") { true })
+        assertFalse(r.session().acquire(BydOemClusterHold.COMPONENT, "one") { true })
         assertEquals(0, r.state)
         assertFalse(r.events.any { it.startsWith("set=") })
+    }
+
+    @Test fun packageModeDisablesWithoutJournalingAndStaysDisabledAfterRelease() {
+        val r = Rig(1)
+        val s = r.session()
+        assertTrue(s.acquire(BydOemClusterHold.PACKAGE, "one") { true })
+        assertEquals(3, r.state)
+        assertNull(r.journal)
+        assertTrue(s.release("one"))
+        assertEquals(3, r.state)
+        assertNull(r.journal)
+    }
+
+    @Test fun offModeReEnablesAPreviousLongTermPackageDisable() {
+        val r = Rig(3).apply { /* pretend a long-term PACKAGE disable left state at DISABLED_USER */ }
+        val s = r.session()
+        assertTrue(s.acquire(BydOemClusterHold.OFF, "one") { true })
+        assertEquals(1, r.state)
+        assertNull(r.journal)
     }
 
     @Test fun queuedStopBeforeAcquirePreventsDisable() {
@@ -70,10 +89,11 @@ class OemClusterHoldSessionTest {
         assertNull(r.journal)
     }
 
-    @Test fun restartRecoversACrashAfterDisable() {
+    @Test fun restartRecoversAComponentCrashAfterDisable() {
         val r = Rig(1)
-        assertTrue(r.session().acquire(BydOemClusterHold.PACKAGE, "one") { true })
-        assertTrue(r.session().release())
+        val s = r.session()
+        assertTrue(s.acquire(BydOemClusterHold.COMPONENT, "one") { true })
+        assertTrue(s.release())
         assertEquals(1, r.state)
         assertNull(r.journal)
     }
@@ -111,7 +131,7 @@ class OemClusterHoldSessionTest {
         val r = Rig()
         val s = r.session()
         assertTrue(s.acquire(BydOemClusterHold.COMPONENT, "one") { true })
-        assertTrue(s.acquire(BydOemClusterHold.PACKAGE, "two") { true })
+        assertTrue(s.acquire(BydOemClusterHold.COMPONENT, "two") { true })
         assertTrue(s.release("one"))
         assertEquals(3, r.state)
         assertEquals("two", r.journal?.lease)

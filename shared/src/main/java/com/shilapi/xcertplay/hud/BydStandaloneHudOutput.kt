@@ -60,24 +60,16 @@ internal class BydStandaloneHudOutput private constructor(context: Context) {
             }.onFailure { appendLine("receiverMetadataUnavailable=${it.javaClass.simpleName}") }
         }
 
-        /** Enable production and diagnostic packages only on the physically tested firmware. */
-        fun available(context: Context): Boolean {
-            if (Build.VERSION.SDK_INT < 28 || context.packageName !in setOf(
-                    "com.andrerinas.headunitrevived", "com.shihab.diplay",
-                    "com.andrerinas.headunitrevived.bydhudtest", "com.shihab.diplay.hudtest")) return false
-            if (Build.FINGERPRINT != "BYD-AUTO/IVI/IVI:13/TP1A.220624.014/eng.build20260722.221155:user/release-keys") return false
-            return runCatching {
-                val manager = context.packageManager
-                val info = manager.getPackageInfo(TARGET.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
-                val receiver = manager.getReceiverInfo(TARGET, 0)
-                val signers = info.signingInfo?.apkContentsSigners ?: return false
-                info.longVersionCode == 10601004L &&
-                    info.applicationInfo!!.flags and ApplicationInfo.FLAG_SYSTEM != 0 &&
-                    receiver.enabled && receiver.exported && receiver.permission.isNullOrEmpty() &&
-                    signers.size == 1 && MessageDigest.getInstance("SHA-256").digest(signers[0].toByteArray())
-                        .joinToString("") { "%02x".format(it.toInt() and 255) } ==
-                        "efe3ca8ada0d10c655c3df9910ad2ebc121a47d9a6358434eb24074309933efc"
-            }.getOrDefault(false)
-        }
+        /**
+         * Enable HUD output on any head unit that exposes the open BYD HUD receiver. The firmware
+         * fingerprint, app allowlist, receiver version, signing certificate, system-app flag,
+         * receiver permission and SDK checks have all been lifted so HUD song/lyrics work across
+         * DiLink generations without a retest per firmware. Only the functional contract remains:
+         * the receiver element must exist, be enabled and exported so the navigation broadcast
+         * can reach it.
+         */
+        fun available(context: Context): Boolean = runCatching {
+            context.packageManager.getReceiverInfo(TARGET, 0).let { it.enabled && it.exported }
+        }.getOrDefault(false)
     }
 }

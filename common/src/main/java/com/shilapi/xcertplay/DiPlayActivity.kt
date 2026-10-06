@@ -57,6 +57,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.concurrent.thread
 import kotlin.math.roundToInt
 
 /** DiAuto's visual language, with a connection flow for an independent CarPlay receiver. */
@@ -65,6 +66,8 @@ class DiPlayActivity : ComponentActivity() {
     private var page = "home"
     private var clusterSafeAreaDialog: Dialog? = null
     private var clusterContentRequestVersion = 0L
+    // Last ADB scan with owner metadata, so the picker can show screen classifications.
+    @Volatile private var clusterDisplayCandidates: List<AdbClusterRouter.DisplayCandidate>? = null
     private var pendingCarHotspotSetup = false
     private var hotspotJoinControls: HotspotJoinControls? = null
     private var setupError: String? = null
@@ -650,21 +653,31 @@ class DiPlayActivity : ComponentActivity() {
             if (adbCluster) {
                 card.addView(button(getString(R.string.adb_cluster_authorize), false) { authorizeClusterRouting() }, matchButton(10, 56))
                 card.addView(button(getString(R.string.adb_cluster_open), false) { ClusterActivityOutput.retry() }, matchButton(10, 56))
+                // Instrument-projection display picker lives directly under the DiLink 4 switch,
+                // so the driver can pick a target before turning on the cluster map.
+                clusterDisplayPicker(card)
             }
             if (adbCluster && com.shilapi.xcertplay.hud.BydOemClusterNavi.applicable(this)) {
                 val holds = com.shilapi.xcertplay.hud.BydOemClusterHold.entries
                 card.addView(label(getString(R.string.oem_cluster_map_description), 14, MUTED))
                 choice(card, getString(R.string.oem_cluster_map), holds.map { it.localizedLabel(this) },
                     holds.indexOf(BydOutputSettings.oemClusterHold(this))) { index ->
+                    val previous = BydOutputSettings.oemClusterHold(this)
                     BydOutputSettings.setOemClusterHold(this, holds[index])
+                    // Switching to OFF re-enables a previous long-term PACKAGE disable.
+                    if (holds[index] == com.shilapi.xcertplay.hud.BydOemClusterHold.OFF &&
+                        previous == com.shilapi.xcertplay.hud.BydOemClusterHold.PACKAGE) {
+                        com.shilapi.xcertplay.hud.BydOemClusterNavi.restoreStockMap(this)
+                    }
                     ClusterActivityOutput.stopForSettings()
                     reconnectForClusterMap()
                 }
+                card.addView(label(getString(R.string.oem_cluster_map_recommendation), 14, MUTED))
+                card.addView(label(getString(R.string.oem_cluster_map_restart_notice), 14, MUTED))
             }
             val clusterDisplay = ClusterMapPresentation.findDisplay(this)
-            val clusterSize = clusterDisplay?.let { ClusterMapPresentation.sizeOf(it) }
-            val diLink4 = adbCluster || (clusterDisplay != null && clusterSize != null &&
-                DiLink4ClusterDisplay.matches(clusterDisplay.name, clusterSize.x, clusterSize.y))
+            val diLink4 = adbCluster ||
+                (clusterDisplay != null && DiLink4ClusterDisplay.matches(clusterDisplay.name))
             val clusterMapEnabled = AirPlayPersistence.loadClusterMapEnabled(this)
             toggle(card, getString(R.string.carplay_map_on_instrument_cluster_experimental),
                 if (clusterDisplay != null || adbCluster) getString(R.string.shows_the_iphone_s_cluster_map_on_the_instrument_cluster_c)
@@ -833,6 +846,13 @@ class DiPlayActivity : ComponentActivity() {
                                 getString(R.string.dashboard_map_only_in_small_and_full_navi_description),
                                 BydOutputSettings.clusterStreamPause(this)) {
                                 BydOutputSettings.setClusterStreamPause(this, it)
+                                if (it) checkAdbState(mayAsk = true)
+                            }
+                        } else {
+                            toggle(card, getString(R.string.cluster_screen_status),
+                                getString(R.string.cluster_screen_status_description),
+                                BydOutputSettings.clusterScreenStatus(this)) {
+                                BydOutputSettings.setClusterScreenStatus(this, it)
                                 if (it) checkAdbState(mayAsk = true)
                             }
                         }
@@ -1550,6 +1570,145 @@ class DiPlayActivity : ComponentActivity() {
             .setView(ScrollView(this).apply { addView(body) })
             .setPositiveButton(getString(R.string.close)) { _, _ -> render() }
             .show()
+    }
+
+    /**
+     * Manual display selection for the ADB cluster route: "Automatic" or one of the displays last
+     * read from the head unit. The pick is matched by name and geometry at launch, not by the
+     * per-boot numeric id, and bypasses the automatic projection matching. Each discovered display
+     * is annotated with its classification: the main screen is not selectable, a BYD/XDJA
+     * projection surface wide enough to be an instrument panel is recommended, a small non-BYD
+     * surface is suspected to be a third-party desktop widget.
+     */
+    private fun clusterDisplayPicker(card: LinearLayout) {
+        val override = AirPlayPersistence.loadClusterDisplayOverride(this)
+        val buttonText = if (override != null)
+            getString(R.string.cluster_display_option, override.name, override.width, override.height)
+        else getString(R.string.cluster_display_auto)
+
+        val button = button("${getString(R.string.cluster_display)} · $buttonText", false) { pickClusterDisplay() }
+        // Same top gap and height as every sibling button in this card.
+        card.addView(button, matchButton(10, 56))
+        card.addView(button(getString(R.string.cluster_display_rescan), false) { pickClusterDisplay() }, matchButton(10, 56))
+    }
+
+    /**
+     * Triggered by tapping the cluster-display picker or the rescan button: scans the head unit's
+     * display list over ADB with a loading hint, then shows the selection dialog. An empty result
+     * means no projection surface is active — the driver must trigger the stock instrument display
+     * first. A null result means ADB is not authorized or unreachable.
+     */
+    private fun pickClusterDisplay() {
+        toast(getString(R.string.cluster_display_scanning))
+        thread {
+            val found = AdbClusterRouter.scan(this)
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                if (found == null) {
+                    // ADB not authorized or unreachable: prompt to authorize first.
+                    AlertDialog.Builder(this)
+                        .setTitle(R.string.cluster_display)
+                        .setMessage(R.string.cluster_display_adb_required)
+                        .setPositiveButton(R.string.adb_cluster_authorize) { _, _ -> authorizeClusterRouting() }
+                        .setNegativeButton(R.string.cancel, null)
+                        .show()
+                    return@runOnUiThread
+                }
+                clusterDisplayCandidates = found
+                if (found.isEmpty()) {
+                    // Nothing was read: say so instead of blaming ADB authorization, and keep the
+                    // last known list for the picker.
+                    AlertDialog.Builder(this)
+                        .setTitle(R.string.cluster_display)
+                        .setMessage(R.string.cluster_display_none)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                    return@runOnUiThread
+                }
+                AirPlayPersistence.saveClusterDisplayCandidates(this,
+                    found.map { AdbClusterRouter.DisplayTarget(it.name, it.width, it.height) })
+                showClusterDisplayDialog(found)
+            }
+        }
+    }
+
+    private fun showClusterDisplayDialog(candidates: List<AdbClusterRouter.DisplayCandidate>) {
+        val override = AirPlayPersistence.loadClusterDisplayOverride(this)
+        val targets = candidates.map { AdbClusterRouter.DisplayTarget(it.name, it.width, it.height) }
+        val classes = candidates.associateBy { AdbClusterRouter.DisplayTarget(it.name, it.width, it.height) }
+
+        val options = mutableListOf(getString(R.string.cluster_display_auto))
+        options += targets.map { target ->
+            val label = classes[target]?.let { classificationLabel(AdbClusterRouter.classify(it)) }.orEmpty()
+            if (label.isEmpty()) getString(R.string.cluster_display_option, target.name, target.width, target.height)
+            else getString(R.string.cluster_display_option_classed, target.name, target.width, target.height, label)
+        }
+        // MAIN positions (display id 0) are not selectable.
+        val disabledIndices = mutableSetOf<Int>()
+        candidates.forEachIndexed { index, candidate ->
+            if (AdbClusterRouter.classify(candidate) == AdbClusterRouter.DisplayClass.MAIN) {
+                disabledIndices.add(index + 1) // offset by 1 for "Automatic"
+            }
+        }
+        var current = 0
+        if (override != null) {
+            val found = targets.indexOfFirst { it == override }
+            current = if (found >= 0) found + 1
+            else {
+                options += getString(R.string.cluster_display_option, override.name, override.width, override.height)
+                options.lastIndex
+            }
+        }
+        if (options.size == 1) {
+            // Only "Automatic" is present: no usable display was found.
+            AlertDialog.Builder(this)
+                .setTitle(R.string.cluster_display)
+                .setMessage(R.string.cluster_display_none)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+            return
+        }
+        clusterDisplayChoiceDialog(getString(R.string.cluster_display), options, current, disabledIndices) { selection ->
+            val target = when {
+                selection == 0 -> null
+                else -> targets.getOrNull(selection - 1) ?: override
+            }
+            AirPlayPersistence.saveClusterDisplayOverride(this, target)
+            render()
+        }
+    }
+
+    private fun classificationLabel(cls: AdbClusterRouter.DisplayClass): String = getString(when (cls) {
+        AdbClusterRouter.DisplayClass.MAIN -> R.string.cluster_display_main_label
+        AdbClusterRouter.DisplayClass.DASHBOARD -> R.string.cluster_display_dashboard_label
+        AdbClusterRouter.DisplayClass.WIDGET -> R.string.cluster_display_widget_label
+        AdbClusterRouter.DisplayClass.OTHER -> R.string.cluster_display_other_label
+    })
+
+    /**
+     * Like [choice] but supports disabling individual items (the main screen is never selectable).
+     * Disabled items are still shown with their classification label so the driver can read them.
+     */
+    private fun clusterDisplayChoiceDialog(
+        title: String, options: List<String>, current: Int,
+        disabledIndices: Set<Int>, save: (Int) -> Unit,
+    ) {
+        var selection = current
+        var pendingSelection = selection
+        val adapter = object : ArrayAdapter<String>(this, android.R.layout.select_dialog_singlechoice, options) {
+            override fun areAllItemsEnabled(): Boolean = false
+            override fun isEnabled(position: Int): Boolean = position !in disabledIndices
+        }
+        AlertDialog.Builder(this).setTitle(title)
+            .setSingleChoiceItems(adapter, selection) { _, index ->
+                if (index !in disabledIndices) pendingSelection = index
+                else toast(getString(R.string.cluster_display_main_unselectable))
+            }
+            .setPositiveButton(getString(R.string.save)) { _, _ ->
+                if (pendingSelection != selection && pendingSelection !in disabledIndices) {
+                    save(pendingSelection)
+                }
+            }.setNegativeButton(getString(R.string.cancel), null).show()
     }
 
     /** Steering-wheel keys for the dashboard map zoom and the CarPlay joystick: the switches, the key service and the keys. */

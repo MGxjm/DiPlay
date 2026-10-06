@@ -13,8 +13,11 @@ for the instrument-cluster stream. Other firmware has not been vehicle-tested.
 4. Connect or reconnect the iPhone and open Apple Maps. The main CarPlay display
    stays on the head unit while the independent map appears on the cluster.
 
-The route detects the current logical display ID from the exact XDJA-owned
-`fission_bg_xdjaVirtualSurface` display at 1920×720. It does not assume display 1.
+The route detects the current logical display ID from an XDJA-owned (`com.xdja.containerservice`)
+cluster projection display, matched by name alone: any BYD `fission`/`xdja` projection surface
+counts, whatever its resolution. `fission_bg_xdjaVirtualSurface` at 1920×720 is the measured
+reference, not the only accepted model, and derived `shared_…` layers are never taken as the
+base projection. It does not assume display 1.
 An absent, ambiguous or mismatched target is rejected. The Activity validates its
 per-launch token and actual display before handing its surface to stream 111.
 Some firmware reports display 0 to the view; in that case the exact Activity task
@@ -52,16 +55,45 @@ stream. Map orientation is controlled by the phone's cluster stream.
 
 ## Scope and credit
 
-DiLink 5/5.1 and public cluster displays take priority even if the ADB switch is
+Routing priority is now keyed on the projection surface a head unit exposes, not
+on a single measured firmware fingerprint. Any firmware exposing a DiLink 5 XDJA
+Screen Projection display (`fission_bg_XDJAScreenProjection`, including derived
+`shared_*` layers) takes the DiLink 5 path; the DiLink 4 ADB route stays off
+regardless of the saved experimental switch. The `supported` fingerprint check now
+only gates the measured 1920×720 layout plan and theme/contrast controls on the
+verified firmware. DiLink 4 and DiLink 3 firmware no longer have a version gate
+either: both fall back to the unified DiLink 4 ADB route when no DiLink 5
+projection surface is present.
+
+DiLink 5 public cluster displays take priority even if the ADB switch is
 saved. Until an activity confirms the private display, the original virtual stream
 remains. If confirmation arrives after CarPlay starts, DiPlay reconnects once to
 request 1920×720 and covers the cluster during that transition. Turning off only
 the ADB option leaves the saved cluster-map enable preference intact.
-When the DiLink 4 ADB option is selected, automatic DiLink 3 cluster-mode
-commands are suppressed. The installed AMap adapter package alone cannot identify
-the generation: those commands can switch a DiLink 4 cluster to half-screen or
-close its native casting. A pending DiLink 3 recovery journal is retained until
-the ADB option is deselected. The user-selected native casting mode is preserved.
+The DiLink 3 cluster-mode commands run on both DiLink 3 and DiLink 4 head units,
+including while the ADB option is selected: they open the instrument's projection
+window. The instrument keeps that window in its previous layout until it is opened
+again, so every wheel switch to Full screen navi closes and reopens the projection
+once; the full layout then takes effect without visiting DiPlay's settings.
+A pending DiLink 3 recovery journal is always restored.
+
+### Available screen selection
+
+First-time configuration prompts the user to authorise local ADB, then to open
+the car's own Gaode (AutoMap) projection in the instrument cluster menu (Small or
+Full navi). DiPlay then scans every base logical display reported by
+`dumpsys display` — including the main display (id 0) — and shows them as a list
+for the user to pick. Items are not filtered out; each is tagged instead:
+
+- **Current main screen (not selectable)** — id 0; the picker disables it.
+- **Suspected instrument panel (recommended)** — a BYD/XDJA projection surface,
+  whatever its resolution (matches `DiLink4ClusterDisplay`).
+- **Suspected third-party desktop widget (not recommended)** — a small surface
+  owned by a non-BYD package.
+- **Other display** — anything else.
+
+Nothing prevents a manual pick beyond the main screen; the markers only advise.
+The manual pick is matched by name and panel size, so it survives reboots.
 
 USB reconnection and colour controls retain the implementations already on main. Automated tests cannot establish visible placement on other cars.
 
@@ -76,18 +108,38 @@ ChatGPT/Codex. DiPlay/xcertplay authors and existing licence notices are retaine
 ## Optional stock map and HUD text
 
 This route is shared with PR #187; there is only one decoder-surface owner.
-Stock-map holding defaults off. A selected component/package hold is journaled
-before changing OEM state, checked before launch, and restores the exact original
-state on failure, stop, or the next app launch after a crash. A failed restoration
-retains the journal and retries using already authorized local ADB. If recovery
-cannot complete, the next held launch is refused. Until recovery succeeds, the
-stock map can remain disabled; force-stop cannot guarantee immediate restoration.
+Stock-map holding defaults off and now has three levels:
+
+- **Not disabled** — leaves the stock map running. Picking this also re-enables
+  any previous long-term disable, restoring both the projection component and the
+  whole stock-map package to their default-enabled state and clearing the
+  recovery journal.
+- **Disabled while DiPlay is running** — journals the original state before
+  changing it, restores the exact original state on failure, stop, or the next
+  app launch after a crash. A failed restoration retains the journal and retries
+  using already authorized local ADB. If recovery cannot complete, the next held
+  launch is refused. Until recovery succeeds, the stock map can remain disabled;
+  force-stop cannot guarantee immediate restoration.
+- **Long-term disabled** — recommended. Disables the whole stock-map package
+  with no journal and no auto-restore: the stock map stays disabled after DiPlay
+  stops, so it cannot grab the instrument projection surface back from DiPlay.
+  Pick **Not disabled** to re-enable.
+
+The stock map's projection component (`com.byd.automap/com.byd.automap.extra.MeterActivity`)
+is the target for the DiPlay-running level; the whole `com.byd.automap` package is
+the target for the long-term level. Requires authorized local ADB; applies after
+reconnecting. After enabling DiLink 4 projection, set the desired mode (Full or
+Small screen) in the car's instrument cluster menu, finish the other settings,
+then turn the car off and on again. Each switch of this setting requires
+restarting the car.
 
 HUD text defaults off and yields to active navigation. Leaving guidance for text
-clears maneuver/distance records first. Existing firmware, receiver/version and
-signing-certificate restrictions remain. DiLink 4 cluster video does not imply
-DiLink 4 HUD support: no verified DiLink 4 HUD receiver profile was supplied with
-these PRs. Diagnostic exports include the firmware and installed receiver version,
-certificate and permission metadata needed to review a new profile. Do not add
-one based only on package presence. Fork application-ID/build changes and deleted
-HUD diagnostic tooling from #187 are intentionally excluded.
+clears maneuver/distance records first. All model checks are lifted: HUD activates
+on any head unit that exposes an enabled, exported BYD HUD receiver — firmware,
+receiver version, signing certificate, system-app flag, receiver permission and
+SDK no longer take part. The song/lyrics line is carried on both HUD backends: the
+standalone receiver, and the SOME/IP gateway's road-name field for head units
+without the receiver (that rendering is unverified pending a vehicle test).
+Diagnostic exports include the firmware and installed receiver version, certificate
+and permission metadata. Fork application-ID/build
+changes and deleted HUD diagnostic tooling from #187 are intentionally excluded.

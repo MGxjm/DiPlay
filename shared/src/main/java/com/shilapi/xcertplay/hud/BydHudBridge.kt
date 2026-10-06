@@ -38,6 +38,8 @@ internal object BydHudBridge {
     private var started = false
     private var senderStarted = false
     private var guidanceSentLogged = false
+    private var guidanceShowing = false
+    private var textSentLogged = false
     private var showing = false
     private var lastSendResult: Int? = null
     private var icons: Map<Int, ByteArray>? = null
@@ -112,25 +114,40 @@ internal object BydHudBridge {
 
     private fun sendCurrentLocked() {
         if (binder == null || !started) return
-        if (!enabled()) {
+        // Guidance obeys the navigation-output toggle; the song/lyrics line has its own setting.
+        val guidance = if (enabled()) route.current() else null
+        if (guidance != null) {
+            val payload = BydHudPayload.guidance(
+                distanceMeters = guidance.distanceMeters,
+                maneuver = guidance.maneuver,
+                icon = iconFor(guidance.gaode),
+                road = guidance.road,
+            )
+            val accepted = sendLocked(payload)
+            if (accepted && !guidanceSentLogged) {
+                guidanceSentLogged = true
+                Log.i(TAG, "HUD profile (300ms repeat, fixed field2=2): gateway accepted guidance; rendering unconfirmed")
+            }
+            if (accepted) {
+                showing = true
+                guidanceShowing = true
+            }
+            return
+        }
+        // No navigation: carry the phone-supplied title/lyrics line, like the standalone receiver,
+        // so head units without the com.byd.clusterdebug receiver still get HUD text.
+        val line = context?.takeIf(BydOutputSettings::hudSong)
+            ?.let { BydClusterSong.current() }?.takeIf { it.playing }?.line
+        if (line == null) {
             clearHudLocked()
             return
         }
-        val guidance = route.current()
-        if (guidance == null) {
-            clearHudLocked()
-            return
-        }
-        val payload = BydHudPayload.guidance(
-            distanceMeters = guidance.distanceMeters,
-            maneuver = guidance.maneuver,
-            icon = iconFor(guidance.gaode),
-            road = guidance.road,
-        )
-        val accepted = sendLocked(payload)
-        if (accepted && !guidanceSentLogged) {
-            guidanceSentLogged = true
-            Log.i(TAG, "HUD profile (300ms repeat, fixed field2=2): gateway accepted guidance; rendering unconfirmed")
+        // The standalone path drops maneuver records before entering text-only mode; do the same.
+        if (guidanceShowing) clearHudLocked()
+        val accepted = sendLocked(BydHudPayload.textLine(line))
+        if (accepted && !textSentLogged) {
+            textSentLogged = true
+            Log.i(TAG, "HUD text: gateway accepted the song/lyrics line; rendering unconfirmed")
         }
         if (accepted) showing = true
     }
@@ -140,6 +157,8 @@ internal object BydHudBridge {
         if (!sendLocked(BydHudPayload.clear())) return
         showing = false
         guidanceSentLogged = false
+        guidanceShowing = false
+        textSentLogged = false
     }
 
     // Arrow-less maneuvers (roundabouts, destination) are only visible through the field-8 icon.
@@ -255,5 +274,7 @@ internal object BydHudBridge {
         started = false
         showing = false
         guidanceSentLogged = false
+        guidanceShowing = false
+        textSentLogged = false
     }
 }

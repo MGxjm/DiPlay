@@ -65,6 +65,8 @@ object AirPlayPersistence {
     private const val KEY_MEDIA_BUFFER_MS = "media_buffer_ms"
     private const val KEY_CLUSTER_MAP = "cluster_map_enabled"
     private const val KEY_ADB_CLUSTER_ACTIVITY = "adb_cluster_activity_enabled"
+    private const val KEY_CLUSTER_DISPLAY_OVERRIDE = "cluster_display_override"
+    private const val KEY_CLUSTER_DISPLAY_CANDIDATES = "cluster_display_candidates"
     private const val KEY_CENTER_MAP_OVERLAY = "center_map_overlay"
     private const val KEY_CENTER_MAP_AUTO_HIDE = "center_map_auto_hide"
     private const val KEY_LAUNCHER_MAP_SHARING = "launcher_map_sharing"
@@ -557,6 +559,30 @@ object AirPlayPersistence {
 
     fun saveClusterMapEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CLUSTER_MAP, enabled).apply()
+    }
+
+    /** The user-picked ADB-route cluster display; null means automatic selection. Matched by name and size. */
+    internal fun loadClusterDisplayOverride(context: Context): AdbClusterRouter.DisplayTarget? =
+        AdbClusterRouter.DisplayTarget.parse(
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CLUSTER_DISPLAY_OVERRIDE, null))
+
+    internal fun saveClusterDisplayOverride(context: Context, target: AdbClusterRouter.DisplayTarget?) {
+        val edit = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        if (target == null) edit.remove(KEY_CLUSTER_DISPLAY_OVERRIDE)
+        else edit.putString(KEY_CLUSTER_DISPLAY_OVERRIDE, target.encode())
+        edit.apply()
+    }
+
+    /** The display list last seen on the head unit, for the settings picker before a live rescan. */
+    internal fun loadClusterDisplayCandidates(context: Context): List<AdbClusterRouter.DisplayTarget> =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_CLUSTER_DISPLAY_CANDIDATES, null)
+            ?.split('\n').orEmpty().mapNotNull { AdbClusterRouter.DisplayTarget.parse(it) }
+
+    internal fun saveClusterDisplayCandidates(context: Context, candidates: List<AdbClusterRouter.DisplayTarget>) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_CLUSTER_DISPLAY_CANDIDATES, candidates.distinct().joinToString("\n") { it.encode() })
+            .apply()
     }
 
     /** The dashboard map as a card on the centre screen while DiPlay is in the background. */

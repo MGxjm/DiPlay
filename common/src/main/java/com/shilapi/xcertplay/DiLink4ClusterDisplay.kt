@@ -4,13 +4,26 @@ import com.shilapi.xcertplay.airplay.CarPlayClusterDisplay
 import com.shilapi.xcertplay.airplay.AirPlaySafeArea
 import com.shilapi.xcertplay.airplay.SafeAreaRect
 
-/** 2022 Seal / DiLink 4.0: 1920x720 logical display, 1920x624 observed activity area. */
+/**
+ * BYD's cluster projection family, matched by display name only: the panel resolution and the
+ * exact firmware name differ between models. 1920x720 was measured on the 2022 Seal / DiLink 4.0.
+ */
 internal object DiLink4ClusterDisplay {
     const val NAME = "fission_bg_xdjaVirtualSurface"
 
-    // Exact name and geometry only. Do not select arbitrary virtual or passenger displays.
-    fun matches(name: String, width: Int, height: Int): Boolean =
-        name == NAME && width == 1920 && height == 720
+    // BYD/XDJA projection surfaces are named fission_* or *xdja* across DiLink 3/4/5 firmware,
+    // with different casing and suffixes. Derived "shared_" layers are not the base projection.
+    private val NAME_MARKERS = listOf("fission", "xdja")
+    // Advisory only: the settings picker flags small third-party surfaces with these.
+    internal const val MIN_WIDTH = 960
+    internal const val MIN_HEIGHT = 320
+
+    /** A BYD cluster projection surface, whatever its resolution. */
+    fun matches(name: String): Boolean {
+        val lower = name.lowercase()
+        if (lower.startsWith("shared_")) return false
+        return NAME_MARKERS.any { lower.contains(it) }
+    }
 
     const val STREAM_WIDTH = 1920
     const val STREAM_HEIGHT = 720

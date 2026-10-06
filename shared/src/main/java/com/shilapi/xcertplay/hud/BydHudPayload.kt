@@ -33,6 +33,19 @@ internal object BydHudPayload {
         field(16, 1)
     }.toByteArray().wrap()
 
+    /**
+     * One free text line on the road-name field, with the guidance-empty marker so no maneuver
+     * row is implied (the caller sends [clear] before entering text-only mode). Mirrors
+     * [BydStandalonePackets.text]: CarPlay music apps report the track name or the current lyric
+     * line here.
+     */
+    fun textLine(line: String): ByteArray = ByteArrayOutputStream(32).apply {
+        field(2, 2)
+        field(6, 255)
+        field(16, 1)
+        bytes(10, text(line))
+    }.toByteArray().wrap()
+
     private fun displayDistance(meters: Int): Int = meters.coerceAtLeast(0).coerceAtLeast(MIN_DISTANCE_METERS)
 
     private fun text(value: String): ByteArray {

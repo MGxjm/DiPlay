@@ -13,11 +13,17 @@ internal class OemClusterHoldSession(
 
     fun acquire(mode: BydOemClusterHold, lease: String, current: () -> Boolean): Boolean {
         if (!current()) return false
-        val target = when (mode) {
-            BydOemClusterHold.OFF -> return release()
-            BydOemClusterHold.COMPONENT -> Target.COMPONENT
-            BydOemClusterHold.PACKAGE -> Target.PACKAGE
+        return when (mode) {
+            // OFF re-enables any previous hold, including a long-term PACKAGE disable left behind.
+            BydOemClusterHold.OFF -> restoreStockMap()
+            // DiPlay-running disable: journal the original state, restore on release.
+            BydOemClusterHold.COMPONENT -> acquireJournaled(Target.COMPONENT, lease, current)
+            // Long-term disable: no journal, no auto-restore. Stays disabled after DiPlay stops.
+            BydOemClusterHold.PACKAGE -> acquirePersistent(Target.PACKAGE, lease, current)
         }
+    }
+
+    private fun acquireJournaled(target: Target, lease: String, current: () -> Boolean): Boolean {
         val pending = loadJournal()
         if (pending != null && ownedLease == lease && pending.target == target &&
             readState(target) == DISABLED_USER) return current()
@@ -32,6 +38,15 @@ internal class OemClusterHoldSession(
         return false
     }
 
+    private fun acquirePersistent(target: Target, lease: String, current: () -> Boolean): Boolean {
+        if (readState(target) == DISABLED_USER) return current()
+        if (!current()) return false
+        // Drop any journaled hold from a previous COMPONENT mode so a later release() won't fight this.
+        saveJournal(null)
+        ownedLease = null
+        return setState(target, DISABLED_USER) && readState(target) == DISABLED_USER && current()
+    }
+
     fun release(lease: String? = null): Boolean {
         val pending = loadJournal() ?: return true
         // A late failed launch must not undo a newer activity's hold.
@@ -43,5 +58,24 @@ internal class OemClusterHoldSession(
         return true
     }
 
-    companion object { const val DISABLED_USER = 3 }
+    /**
+     * Re-enable both the cluster projection component and the whole stock map package, and clear
+     * any recovery journal. Used when the driver picks OFF, so a previous long-term PACKAGE
+     * disable is also undone. Safe to call when nothing was held.
+     */
+    fun restoreStockMap(): Boolean {
+        var ok = true
+        for (target in Target.entries) {
+            val now = readState(target)
+            if (now != null && now != ENABLED_DEFAULT && !setState(target, ENABLED_DEFAULT)) ok = false
+        }
+        if (!saveJournal(null)) ok = false
+        ownedLease = null
+        return ok
+    }
+
+    companion object {
+        const val DISABLED_USER = 3
+        const val ENABLED_DEFAULT = 1
+    }
 }

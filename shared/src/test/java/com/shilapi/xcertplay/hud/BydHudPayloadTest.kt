@@ -32,4 +32,12 @@ class BydHudPayloadTest {
             BydHudPayload.clear(),
         )
     }
+
+    @Test
+    fun textLineCarriesTheRoadFieldWithTheGuidanceEmptyMarker() {
+        val hex = BydHudPayload.textLine("Line").joinToString("") { "%02x".format(it) }
+        assert(hex.contains("30ff01")) { hex } // field 6 = no guidance, like clear()
+        assert(hex.contains("800101")) { hex } // field 16 = 1
+        assert(hex.contains("52044c696e65")) { hex } // field 10 = "Line"
+    }
 }

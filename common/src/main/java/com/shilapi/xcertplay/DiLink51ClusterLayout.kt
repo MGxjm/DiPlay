@@ -1,6 +1,7 @@
 package com.shilapi.xcertplay
 
 import android.content.Context
+import android.hardware.display.DisplayManager
 import android.os.Build
 import com.shilapi.xcertplay.airplay.AirPlayDisplayConfig
 import com.shilapi.xcertplay.airplay.CarPlayClusterDisplay
@@ -12,6 +13,25 @@ internal object DiLink51ClusterLayout {
     const val FULL = "shared_${BASE}_0"
     const val SIDE = "shared_${BASE}_1"
     private const val PREFS = "diplay_cluster_layout"
+
+    /**
+     * True for any DiLink 5 projection surface name, including the derived `shared_*` layers.
+     * Used for routing priority (DiLink 5 path vs. DiLink 4 ADB path) regardless of firmware
+     * fingerprint — a DiLink 5 head unit is recognised by the projection display it exposes,
+     * not by the one measured firmware.
+     */
+    fun isDiLink5ProjectionName(name: String): Boolean = name.contains(BASE)
+
+    /**
+     * Whether the head unit currently exposes a DiLink 5 projection presentation display. When
+     * true, the DiLink 5 path takes priority and the DiLink 4 ADB route stays off regardless of
+     * the saved experimental switch. Independent of [supported], which only gates the measured
+     * 1920×720 layout plan and theme/contrast controls on the verified firmware.
+     */
+    fun diLink5Route(context: Context): Boolean =
+        context.getSystemService(DisplayManager::class.java)
+            ?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
+            ?.any { isDiLink5ProjectionName(it.name) } == true
 
     enum class Theme(val label: String) {
         SCENARIO("Scenario · side map"), MAP("Map · full map"), SIMPLE("Simple · side map")

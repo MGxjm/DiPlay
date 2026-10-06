@@ -74,34 +74,35 @@ class DiLink3ClusterRecoveryTest {
         assertFalse(prefs.contains("restore_stock_mode"))
     }
 
-    @Test fun adbRoutePreservesNativeCastingDuringPreparationMapAndCleanup() {
+    @Test fun adbRouteKeepsRunningTheClusterModeCommands() {
         app.getSharedPreferences("xcertplay_airplay", 0).edit()
             .putBoolean("adb_cluster_activity_enabled", true).commit()
-        output.prepareDisplay(app) { false }
         output.setDesired(app, mapShown = true, guidanceActive = false)
         drain()
-        output.setDesired(app, mapShown = false, guidanceActive = true)
-        drain()
+        assertEquals(listOf(BydDiLink3ClusterMode.Mode.PROJECTION.command), Shell.commands.toList())
         output.setDesired(app, mapShown = false, guidanceActive = false)
         drain()
-        assertTrue(Shell.commands.isEmpty())
+        assertEquals(listOf(BydDiLink3ClusterMode.Mode.PROJECTION.command, stock), Shell.commands.toList())
         assertFalse(prefs.contains("restore_stock_mode"))
     }
 
-    @Test fun adbRouteDefersOldRecoveryWithoutDiscardingTheJournal() {
+    @Test fun adbRouteRestoresAPendingJournalInsteadOfDeferringIt() {
         prefs.edit().putBoolean("restore_stock_mode", true).commit()
         app.getSharedPreferences("xcertplay_airplay", 0).edit()
             .putBoolean("adb_cluster_activity_enabled", true).commit()
         output.restoreIfNeeded(app)
         drain()
-        assertTrue(Shell.commands.isEmpty())
-        assertTrue(prefs.getBoolean("restore_stock_mode", false))
-        app.getSharedPreferences("xcertplay_airplay", 0).edit()
-            .putBoolean("adb_cluster_activity_enabled", false).commit()
-        output.restoreIfNeeded(app)
-        drain()
         assertEquals(listOf(stock), Shell.commands.toList())
         assertFalse(prefs.contains("restore_stock_mode"))
+    }
+
+    @Test fun wheelFullSelectionReopensTheProjection() {
+        output.setDesired(app, mapShown = true, guidanceActive = false)
+        drain()
+        Shell.commands.clear()
+        output.refreshProjection(app)
+        drain()
+        assertEquals(listOf(stock, BydDiLink3ClusterMode.Mode.PROJECTION.command), Shell.commands.toList())
     }
 
     @Implements(BydAdbShell::class, isInAndroidSdk = false)

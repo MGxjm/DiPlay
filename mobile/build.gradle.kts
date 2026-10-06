@@ -41,6 +41,16 @@ android {
         debug {
             applicationIdSuffix = ".hudtest"
             versionNameSuffix = "-hud-test"
+            // Car-test builds ship as real installable APKs: keep them slim like release.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            optimization {
+                enable = false
+            }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
         release {
             optimization {
@@ -55,6 +65,18 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+
+    // AGP 9.x stores native libraries uncompressed and page-aligned by default. With this
+    // project's libraries that puts the whole lib/ section far into the archive and leaves a
+    // run of zero padding behind it (measured: ~11 MB of padding in a ~21 MB payload, i.e. a
+    // 32 MB APK file). Legacy packaging compresses the .so files and drops the page alignment.
+    // Trade-off: the native libraries are extracted at install time instead of being mmapped
+    // straight from the APK.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 }
 
