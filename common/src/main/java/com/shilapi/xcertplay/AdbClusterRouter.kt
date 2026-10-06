@@ -11,8 +11,14 @@ internal object AdbClusterRouter {
     data class Result(val success: Boolean, val report: String)
 
     /** Existing public cluster displays always win, even when the experimental switch is saved. */
-    fun enabled(context: Context): Boolean = AirPlayPersistence.loadAdbClusterEnabled(context) &&
-        !DiLink51ClusterLayout.supported() && ClusterMapPresentation.findDisplay(context) == null
+    fun enabled(context: Context): Boolean {
+        // A manually selected ADB-only display always routes through ADB, regardless of the
+        // experimental DiLink 4 switch.
+        val manual = ClusterMapPresentation.manualDisplayInfo(context)
+        if (manual?.adbOnly == true) return true
+        return AirPlayPersistence.loadAdbClusterEnabled(context) &&
+            !DiLink51ClusterLayout.supported() && ClusterMapPresentation.findDisplay(context) == null
+    }
 
     // Match only the base logical display, not a device's layer-stack number or override record.
     internal fun displayId(dump: String): Int? {
@@ -23,6 +29,14 @@ internal object AdbClusterRouter {
             Regex("displayId (\\d+)\"").find(line)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it > 0 }
         }.distinct().toList()
         return candidates.singleOrNull()
+    }
+
+    /** Find a display id in the dumpsys output matching the manual selection (name + size). */
+    internal fun displayIdForManual(dump: String, name: String, width: Int, height: Int): Int? {
+        val candidates = ClusterMapPresentation.parseDisplaysFromDump(dump)
+            .filter { it.name == name && (width <= 0 || height <= 0 || it.width == width && it.height == height) }
+            .map { it.displayId }
+        return candidates.singleOrNull()?.takeIf { it > 0 }
     }
 
     // Direct shell launch, following Hanxu4131's legacy platform-21 adapter.
@@ -66,7 +80,13 @@ internal object AdbClusterRouter {
                     val access = adb.connect(mayAsk = false)
                     appendLine("adbAccess=$access")
                     if (access != LocalAdb.Access.READY) return@use
-                    val display = displayId(adb.shell("dumpsys display").orEmpty())
+                    val dump = adb.shell("dumpsys display").orEmpty()
+                    val manual = ClusterMapPresentation.manualDisplayInfo(context)
+                    val display = when {
+                        manual?.adbOnly == true -> displayIdForManual(dump, manual.name, manual.width, manual.height)
+                        else -> displayId(dump)
+                    }
+                    appendLine("manualSelection=${manual?.let { "${it.name} ${it.width}x${it.height} adbOnly=${it.adbOnly}" } ?: "none"}")
                     appendLine("routeTarget=${display ?: "none"}")
                     if (display == null || !enabled(context) || !prepare(display)) return@use
                     val held = !holdStockMap || com.shilapi.xcertplay.hud.BydOemClusterNavi.holdForLaunch(context, token) {

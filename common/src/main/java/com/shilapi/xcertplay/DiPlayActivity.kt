@@ -729,7 +729,10 @@ class DiPlayActivity : ComponentActivity() {
                         }
                         val saved = AirPlayPersistence.loadManualClusterDisplay(this@DiPlayActivity)
                         val options = mutableListOf(getString(R.string.cluster_display_auto))
-                        options.addAll(displays.map { getString(R.string.cluster_display_option, it.name, it.width, it.height) })
+                        options.addAll(displays.map {
+                            val base = getString(R.string.cluster_display_option, it.name, it.width, it.height)
+                            if (it.adbOnly) "$base [ADB]" else base
+                        })
                         var pendingSelection = if (saved == null) 0 else
                             displays.indexOfFirst { it.name == saved.name && it.width == saved.width && it.height == saved.height }
                                 .let { if (it >= 0) it + 1 else 0 }

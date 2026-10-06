@@ -24,6 +24,8 @@ import android.view.View
 import android.view.TextureView
 import android.widget.FrameLayout
 import android.widget.TextView
+import com.shilapi.xcertplay.adb.AdbKeys
+import com.shilapi.xcertplay.adb.LocalAdb
 import com.shilapi.xcertplay.airplay.CarPlayClusterDisplay
 import com.shilapi.xcertplay.host.R
 import com.shilapi.xcertplay.hud.ClusterTurnGuidance
@@ -192,41 +194,92 @@ internal class ClusterMapPresentation(
         const val TAG = "DiPlay-Cluster"
 
         /** Summary of a presentation display shown in the manual-selection picker. */
-        data class DisplayInfo(val displayId: Int, val name: String, val width: Int, val height: Int)
+        data class DisplayInfo(
+            val displayId: Int,
+            val name: String,
+            val width: Int,
+            val height: Int,
+            /** True when the display is only reachable through the ADB shell (private display). */
+            val adbOnly: Boolean = false,
+        )
+
+        private val DISPLAY_INFO_LINE = Regex(
+            """mBaseDisplayInfo=DisplayInfo\{\s*"([^"]+)"\s*,\s*displayId\s+(\d+)\b"""
+        )
+        private val REAL_SIZE = Regex("""\breal\s+(\d+)\s+x\s+(\d+)\b""")
+
+        /** Parse every logical display from `dumpsys display` output. */
+        internal fun parseDisplaysFromDump(dump: String): List<DisplayInfo> {
+            val result = mutableListOf<DisplayInfo>()
+            for (line in dump.lineSequence()) {
+                val m = DISPLAY_INFO_LINE.find(line) ?: continue
+                val name = m.groupValues[1]
+                val id = m.groupValues[2].toIntOrNull() ?: continue
+                val size = REAL_SIZE.find(line)
+                val width = size?.groupValues?.get(1)?.toIntOrNull() ?: 0
+                val height = size?.groupValues?.get(2)?.toIntOrNull() ?: 0
+                if (id != Display.DEFAULT_DISPLAY) {
+                    result.add(DisplayInfo(id, name, width, height, adbOnly = true))
+                }
+            }
+            return result.distinctBy { it.displayId }
+        }
 
         /**
-         * All currently available secondary displays. We enumerate every display (not only
-         * [DisplayManager.DISPLAY_CATEGORY_PRESENTATION]) because some car instrument-cluster
-         * displays (e.g. the one the stock navigation app casts to) do not report the
-         * presentation category and would otherwise be invisible to the picker.
+         * All displays visible to the ADB shell (which can see private cluster displays that
+         * `DisplayManager` hides from third-party apps). Returns an empty list when ADB is
+         * not authorized.
          */
-        fun listPresentationDisplays(context: Context): List<DisplayInfo> =
-            context.getSystemService(DisplayManager::class.java)
-                ?.displays
-                ?.filter { it.displayId != Display.DEFAULT_DISPLAY }
-                ?.map { display ->
+        fun adbListDisplays(context: Context): List<DisplayInfo> = runCatching {
+            LocalAdb(AdbKeys.load(context)).use { adb ->
+                if (adb.connect(mayAsk = false) != LocalAdb.Access.READY) return emptyList()
+                parseDisplaysFromDump(adb.shell("dumpsys display").orEmpty())
+            }
+        }.getOrDefault(emptyList())
+
+        /**
+         * All currently available secondary displays. Merges displays visible to the app via
+         * [DisplayManager] with private displays only reachable through the ADB shell, so the
+         * picker can show the cluster projection display even when the stock navigation owns it.
+         */
+        fun listPresentationDisplays(context: Context): List<DisplayInfo> {
+            val dm = context.getSystemService(DisplayManager::class.java)
+                ?.displays.orEmpty()
+                .filter { it.displayId != Display.DEFAULT_DISPLAY }
+                .map { display ->
                     val size = sizeOf(display)
-                    DisplayInfo(display.displayId, display.name, size.x, size.y)
-                }.orEmpty()
+                    DisplayInfo(display.displayId, display.name, size.x, size.y, adbOnly = false)
+                }
+            val adb = adbListDisplays(context).filter { a -> dm.none { it.displayId == a.displayId } }
+            return (dm + adb).sortedBy { it.displayId }
+        }
 
         /**
-         * Display chosen by the user in settings, matched against the currently available
-         * secondary displays by name (and size when the stored size is positive).
-         * Returns null when no manual override is configured or it cannot be found.
+         * Resolve the user's manual selection against all currently available secondary displays
+         * (both [DisplayManager] and ADB-only). Returns null when no manual override is
+         * configured or the stored name/size cannot be matched.
          */
-        private fun manualDisplay(context: Context): Display? {
+        fun manualDisplayInfo(context: Context): DisplayInfo? {
             val manual = AirPlayPersistence.loadManualClusterDisplay(context) ?: return null
-            val displays = context.getSystemService(DisplayManager::class.java)
-                ?.displays.orEmpty().filter { it.displayId != Display.DEFAULT_DISPLAY }
-            val byName = displays.filter { it.name == manual.name }
+            val all = listPresentationDisplays(context)
+            val byName = all.filter { it.name == manual.name }
             if (byName.isEmpty()) return null
             if (manual.width > 0 && manual.height > 0) {
-                byName.firstOrNull {
-                    val size = sizeOf(it)
-                    size.x == manual.width && size.y == manual.height
-                }?.let { return it }
+                byName.firstOrNull { it.width == manual.width && it.height == manual.height }
+                    ?.let { return it }
             }
             return byName.first()
+        }
+
+        /**
+         * Manual selection resolved to a [Display] object (null when the selection is an
+         * ADB-only private display or not configured).
+         */
+        private fun manualDisplay(context: Context): Display? {
+            val info = manualDisplayInfo(context) ?: return null
+            if (info.adbOnly) return null
+            return context.getSystemService(DisplayManager::class.java)
+                ?.getDisplay(info.displayId)
         }
 
         /** Keep the 5/5.1 selection order, then try the measured DiLink 4 projection display. */
@@ -267,8 +320,12 @@ internal class ClusterMapPresentation(
             val presentations = context.getSystemService(DisplayManager::class.java)
                 ?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).orEmpty()
             appendLine("presentationDisplayIds=${presentations.joinToString { it.displayId.toString() }}")
+            val adbDisplays = adbListDisplays(context)
+            appendLine("adbDisplays=${adbDisplays.joinToString { "${it.displayId}:${it.name} ${it.width}x${it.height}" }}")
             val manual = AirPlayPersistence.loadManualClusterDisplay(context)
             appendLine("manualClusterDisplay=${manual?.let { "${it.name} ${it.width}x${it.height}" } ?: "none"}")
+            val manualInfo = manualDisplayInfo(context)
+            appendLine("manualResolved=${manualInfo?.let { "${it.displayId}:${it.name} ${it.width}x${it.height} adbOnly=${it.adbOnly}" } ?: "none"}")
             val selected = findDisplay(context)
             append("selectedCluster=${selected?.let { "${it.displayId}:${it.name}" } ?: "none"}")
         }
