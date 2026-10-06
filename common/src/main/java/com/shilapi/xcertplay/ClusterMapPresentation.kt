@@ -194,10 +194,16 @@ internal class ClusterMapPresentation(
         /** Summary of a presentation display shown in the manual-selection picker. */
         data class DisplayInfo(val displayId: Int, val name: String, val width: Int, val height: Int)
 
-        /** All currently available presentation (external/virtual) displays. */
+        /**
+         * All currently available secondary displays. We enumerate every display (not only
+         * [DisplayManager.DISPLAY_CATEGORY_PRESENTATION]) because some car instrument-cluster
+         * displays (e.g. the one the stock navigation app casts to) do not report the
+         * presentation category and would otherwise be invisible to the picker.
+         */
         fun listPresentationDisplays(context: Context): List<DisplayInfo> =
             context.getSystemService(DisplayManager::class.java)
-                ?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
+                ?.displays
+                ?.filter { it.displayId != Display.DEFAULT_DISPLAY }
                 ?.map { display ->
                     val size = sizeOf(display)
                     DisplayInfo(display.displayId, display.name, size.x, size.y)
@@ -205,13 +211,13 @@ internal class ClusterMapPresentation(
 
         /**
          * Display chosen by the user in settings, matched against the currently available
-         * presentation displays by name (and size when the stored size is positive).
+         * secondary displays by name (and size when the stored size is positive).
          * Returns null when no manual override is configured or it cannot be found.
          */
         private fun manualDisplay(context: Context): Display? {
             val manual = AirPlayPersistence.loadManualClusterDisplay(context) ?: return null
             val displays = context.getSystemService(DisplayManager::class.java)
-                ?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).orEmpty()
+                ?.displays.orEmpty().filter { it.displayId != Display.DEFAULT_DISPLAY }
             val byName = displays.filter { it.name == manual.name }
             if (byName.isEmpty()) return null
             if (manual.width > 0 && manual.height > 0) {
