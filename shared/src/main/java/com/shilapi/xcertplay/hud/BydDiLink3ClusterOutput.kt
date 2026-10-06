@@ -24,8 +24,7 @@ internal object BydDiLink3ClusterOutput {
 
     /** The projection command for the current map/guidance state and instrument navi mode. */
     private fun desiredMode(): BydDiLink3ClusterMode.Mode? = BydDiLink3ClusterMode.desired(
-        mapShown, guidanceActive, null,
-        instrumentFullScreen = instrumentMode == BydClusterNaviMode.FULL,
+        mapShown, guidanceActive, null, instrumentMode,
     )
 
     /** Also called when the setting is off, so an interrupted output is always recoverable. */

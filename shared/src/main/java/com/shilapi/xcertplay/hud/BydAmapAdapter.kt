@@ -35,13 +35,18 @@ internal object BydDiLink3ClusterMode {
 
     /**
      * The mode to request now, or null while DiPlay has never changed the stock mode. The
-     * projection command follows the instrument's navi mode: Full screen navi needs 16, Small
-     * screen navi (and any unknown mode) uses 17.
+     * projection command follows the instrument's navi mode:
+     * - Turn-on-by-navi only shows the text guidance card, never the projection map, so it needs
+     *   the simple-navigation command (39) while guidance is active.
+     * - Full screen navi needs the full-screen projection (16) while the map is shown.
+     * - Small screen navi (and any unknown mode) uses the half-screen projection (17).
      */
     fun desired(mapShown: Boolean, guidanceActive: Boolean, requested: Mode?,
-        instrumentFullScreen: Boolean,
+        instrumentMode: BydClusterNaviMode?,
     ): Mode? = when {
-        mapShown && instrumentFullScreen -> Mode.FULL_PROJECTION
+        instrumentMode == BydClusterNaviMode.TURN_ON_BY_NAVI ->
+            if (guidanceActive) Mode.SIMPLE_NAVIGATION else null
+        mapShown && instrumentMode == BydClusterNaviMode.FULL -> Mode.FULL_PROJECTION
         mapShown -> Mode.PROJECTION
         guidanceActive -> Mode.SIMPLE_NAVIGATION
         requested != null -> Mode.STOCK

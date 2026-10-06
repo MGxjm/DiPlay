@@ -40,14 +40,17 @@ class BydAmapAdapterTest {
     @Test
     fun mapWinsOverGuidanceAndStockIsRestoredOnlyAfterAChange() {
         val mode = BydDiLink3ClusterMode
-        assertNull(mode.desired(mapShown = false, guidanceActive = false, requested = null, instrumentFullScreen = false))
-        assertEquals(BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION, mode.desired(false, true, null, false))
+        assertNull(mode.desired(mapShown = false, guidanceActive = false, requested = null, instrumentMode = null))
+        assertEquals(BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION, mode.desired(false, true, null, null))
         // Map shown in Small screen navi (or an unknown mode) uses half-screen projection.
-        assertEquals(BydDiLink3ClusterMode.Mode.PROJECTION, mode.desired(true, true, BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION, false))
+        assertEquals(BydDiLink3ClusterMode.Mode.PROJECTION, mode.desired(true, true, BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION, BydClusterNaviMode.SMALL))
         // Map shown in Full screen navi uses the full-screen projection instead.
-        assertEquals(BydDiLink3ClusterMode.Mode.FULL_PROJECTION, mode.desired(true, true, BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION, true))
-        assertEquals(BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION, mode.desired(false, true, BydDiLink3ClusterMode.Mode.PROJECTION, false))
-        assertEquals(BydDiLink3ClusterMode.Mode.STOCK, mode.desired(false, false, BydDiLink3ClusterMode.Mode.PROJECTION, false))
+        assertEquals(BydDiLink3ClusterMode.Mode.FULL_PROJECTION, mode.desired(true, true, BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION, BydClusterNaviMode.FULL))
+        // Turn-on-by-navi never shows the map: it uses the text-guidance card while navigating.
+        assertEquals(BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION, mode.desired(true, true, null, BydClusterNaviMode.TURN_ON_BY_NAVI))
+        assertNull(mode.desired(true, false, null, BydClusterNaviMode.TURN_ON_BY_NAVI))
+        assertEquals(BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION, mode.desired(false, true, BydDiLink3ClusterMode.Mode.PROJECTION, null))
+        assertEquals(BydDiLink3ClusterMode.Mode.STOCK, mode.desired(false, false, BydDiLink3ClusterMode.Mode.PROJECTION, null))
     }
 
     @Test
