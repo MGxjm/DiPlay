@@ -588,6 +588,7 @@
     <string name="cluster_display_none_adb_unapproved">ADB 调试未授权。请先授权 ADB 以发现私有仪表屏幕。</string>
     <string name="cluster_display_none_adb_unsupported">此车机不支持本地 ADB 连接，可能无法手动选择仪表屏幕。</string>
     <string name="cluster_display_none_adb_unreachable">无法连接本地 ADB 服务。请确认车机已开启 USB/无线调试。</string>
+    <string name="scanning_displays">正在扫描屏幕…</string>
     <string name="cluster_display_option">%1$s（%2$dx%3$d）</string>
     <string name="open_diplay_settings_hint">CarPlay 中用 %1$d 指下滑打开 DiPlay 设置。</string>
     <string name="carplay_controls">CarPlay 操作</string>

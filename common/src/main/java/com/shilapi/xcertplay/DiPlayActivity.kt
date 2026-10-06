@@ -718,51 +718,63 @@ class DiPlayActivity : ComponentActivity() {
                     }
                     val picker = button("$title · ${currentLabel()}", false) {}.apply { isAllCaps = false }
                     picker.setOnClickListener {
-                        val displays = ClusterMapPresentation.listPresentationDisplays(this@DiPlayActivity)
-                        if (displays.isEmpty()) {
+                        // ADB socket calls must not run on the main thread.
+                        val loading = AlertDialog.Builder(this@DiPlayActivity)
+                            .setMessage(getString(R.string.scanning_displays))
+                            .setCancelable(false).create()
+                        loading.show()
+                        Thread({
                             val probe = ClusterMapPresentation.adbProbeDisplays(this@DiPlayActivity)
-                            val msg = when (probe.access) {
-                                com.shilapi.xcertplay.adb.LocalAdb.Access.READY ->
-                                    getString(R.string.cluster_display_none_adb_ready)
-                                com.shilapi.xcertplay.adb.LocalAdb.Access.NOT_APPROVED ->
-                                    getString(R.string.cluster_display_none_adb_unapproved)
-                                com.shilapi.xcertplay.adb.LocalAdb.Access.UNSUPPORTED ->
-                                    getString(R.string.cluster_display_none_adb_unsupported)
-                                else -> getString(R.string.cluster_display_none_adb_unreachable)
-                            }
-                            val builder = AlertDialog.Builder(this@DiPlayActivity)
-                                .setTitle(title)
-                                .setMessage(msg)
-                            if (probe.access != com.shilapi.xcertplay.adb.LocalAdb.Access.READY) {
-                                builder.setPositiveButton(R.string.adb_cluster_authorize) { _, _ -> authorizeClusterRouting() }
-                            }
-                            builder.setNegativeButton(R.string.close, null).show()
-                            return@setOnClickListener
-                        }
-                        val saved = AirPlayPersistence.loadManualClusterDisplay(this@DiPlayActivity)
-                        val options = mutableListOf(getString(R.string.cluster_display_auto))
-                        options.addAll(displays.map {
-                            val base = getString(R.string.cluster_display_option, it.name, it.width, it.height)
-                            if (it.adbOnly) "$base [ADB]" else base
-                        })
-                        var pendingSelection = if (saved == null) 0 else
-                            displays.indexOfFirst { it.name == saved.name && it.width == saved.width && it.height == saved.height }
-                                .let { if (it >= 0) it + 1 else 0 }
-                        AlertDialog.Builder(this@DiPlayActivity)
-                            .setTitle(title)
-                            .setSingleChoiceItems(options.toTypedArray(), pendingSelection) { _, index -> pendingSelection = index }
-                            .setPositiveButton(getString(R.string.save)) { _, _ ->
-                                if (pendingSelection == 0) {
-                                    AirPlayPersistence.clearManualClusterDisplay(this@DiPlayActivity)
-                                } else {
-                                    val picked = displays[pendingSelection - 1]
-                                    AirPlayPersistence.saveManualClusterDisplay(this@DiPlayActivity, picked.name, picked.width, picked.height)
+                            val dm = ClusterMapPresentation.listPresentationDisplays(this@DiPlayActivity)
+                            val displays = (dm + probe.displays.filter { a -> dm.none { it.displayId == a.displayId } })
+                                .distinctBy { it.displayId }.sortedBy { it.displayId }
+                            runOnUiThread {
+                                loading.dismiss()
+                                if (isFinishing || isDestroyed) return@runOnUiThread
+                                if (displays.isEmpty()) {
+                                    val msg = when (probe.access) {
+                                        com.shilapi.xcertplay.adb.LocalAdb.Access.READY ->
+                                            getString(R.string.cluster_display_none_adb_ready)
+                                        com.shilapi.xcertplay.adb.LocalAdb.Access.NOT_APPROVED ->
+                                            getString(R.string.cluster_display_none_adb_unapproved)
+                                        com.shilapi.xcertplay.adb.LocalAdb.Access.UNSUPPORTED ->
+                                            getString(R.string.cluster_display_none_adb_unsupported)
+                                        else -> getString(R.string.cluster_display_none_adb_unreachable)
+                                    }
+                                    val builder = AlertDialog.Builder(this@DiPlayActivity)
+                                        .setTitle(title).setMessage(msg)
+                                    if (probe.access != com.shilapi.xcertplay.adb.LocalAdb.Access.READY) {
+                                        builder.setPositiveButton(R.string.adb_cluster_authorize) { _, _ -> authorizeClusterRouting() }
+                                    }
+                                    builder.setNegativeButton(R.string.close, null).show()
+                                    return@runOnUiThread
                                 }
-                                picker.text = "$title · ${currentLabel()}"
-                                reconnectForClusterMap()
+                                val saved = AirPlayPersistence.loadManualClusterDisplay(this@DiPlayActivity)
+                                val options = mutableListOf(getString(R.string.cluster_display_auto))
+                                options.addAll(displays.map {
+                                    val base = getString(R.string.cluster_display_option, it.name, it.width, it.height)
+                                    if (it.adbOnly) "$base [ADB]" else base
+                                })
+                                var pendingSelection = if (saved == null) 0 else
+                                    displays.indexOfFirst { it.name == saved.name && it.width == saved.width && it.height == saved.height }
+                                        .let { if (it >= 0) it + 1 else 0 }
+                                AlertDialog.Builder(this@DiPlayActivity)
+                                    .setTitle(title)
+                                    .setSingleChoiceItems(options.toTypedArray(), pendingSelection) { _, index -> pendingSelection = index }
+                                    .setPositiveButton(getString(R.string.save)) { _, _ ->
+                                        if (pendingSelection == 0) {
+                                            AirPlayPersistence.clearManualClusterDisplay(this@DiPlayActivity)
+                                        } else {
+                                            val picked = displays[pendingSelection - 1]
+                                            AirPlayPersistence.saveManualClusterDisplay(this@DiPlayActivity, picked.name, picked.width, picked.height)
+                                        }
+                                        picker.text = "$title · ${currentLabel()}"
+                                        reconnectForClusterMap()
+                                    }
+                                    .setNegativeButton(R.string.cancel, null)
+                                    .show()
                             }
-                            .setNegativeButton(R.string.cancel, null)
-                            .show()
+                        }, "cluster-display-probe").start()
                     }
                     card.addView(picker, matchButton(0, 60))
                     card.addView(space(8))

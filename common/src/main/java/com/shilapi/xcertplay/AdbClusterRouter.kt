@@ -14,8 +14,7 @@ internal object AdbClusterRouter {
     fun enabled(context: Context): Boolean {
         // A manually selected ADB-only display always routes through ADB, regardless of the
         // experimental DiLink 4 switch.
-        val manual = ClusterMapPresentation.manualDisplayInfo(context)
-        if (manual?.adbOnly == true) return true
+        if (ClusterMapPresentation.isManualAdbOnly(context)) return true
         return AirPlayPersistence.loadAdbClusterEnabled(context) &&
             !DiLink51ClusterLayout.supported() && ClusterMapPresentation.findDisplay(context) == null
     }
@@ -81,12 +80,14 @@ internal object AdbClusterRouter {
                     appendLine("adbAccess=$access")
                     if (access != LocalAdb.Access.READY) return@use
                     val dump = adb.shell("dumpsys display").orEmpty()
-                    val manual = ClusterMapPresentation.manualDisplayInfo(context)
+                    val manual = AirPlayPersistence.loadManualClusterDisplay(context)
+                    val manualAdbOnly = manual != null && ClusterMapPresentation.isManualAdbOnly(context)
                     val display = when {
-                        manual?.adbOnly == true -> displayIdForManual(dump, manual.name, manual.width, manual.height)
+                        manualAdbOnly && manual != null ->
+                            displayIdForManual(dump, manual.name, manual.width, manual.height)
                         else -> displayId(dump)
                     }
-                    appendLine("manualSelection=${manual?.let { "${it.name} ${it.width}x${it.height} adbOnly=${it.adbOnly}" } ?: "none"}")
+                    appendLine("manualSelection=${manual?.let { "${it.name} ${it.width}x${it.height} adbOnly=$manualAdbOnly" } ?: "none"}")
                     appendLine("routeTarget=${display ?: "none"}")
                     if (display == null || !enabled(context) || !prepare(display)) return@use
                     val held = !holdStockMap || com.shilapi.xcertplay.hud.BydOemClusterNavi.holdForLaunch(context, token) {

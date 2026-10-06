@@ -588,6 +588,7 @@
     <string name="cluster_display_none_adb_unapproved">ADB debugging is not approved. Authorize ADB to discover private cluster displays.</string>
     <string name="cluster_display_none_adb_unsupported">This car does not support local ADB connections. The cluster display may not be selectable.</string>
     <string name="cluster_display_none_adb_unreachable">Cannot reach the local ADB daemon. Make sure USB/Wireless debugging is enabled on the car.</string>
+    <string name="scanning_displays">Scanning displays…</string>
     <string name="cluster_display_option">%1$s (%2$dx%3$d)</string>
     <string name="open_diplay_settings_hint">In CarPlay, swipe down with %1$d fingers to open DiPlay settings.</string>
     <string name="carplay_controls">CarPlay controls</string>

@@ -254,37 +254,53 @@ internal class ClusterMapPresentation(
         fun adbListDisplays(context: Context): List<DisplayInfo> = adbProbeDisplays(context).displays
 
         /**
-         * All currently available secondary displays. Merges displays visible to the app via
-         * [DisplayManager] with private displays only reachable through the ADB shell, so the
-         * picker can show the cluster projection display even when the stock navigation owns it.
+         * Secondary displays visible to the app through [DisplayManager] only (no ADB).
+         * Safe to call from the main thread.
          */
-        fun listPresentationDisplays(context: Context): List<DisplayInfo> {
-            val dm = context.getSystemService(DisplayManager::class.java)
+        private fun dmDisplays(context: Context): List<DisplayInfo> =
+            context.getSystemService(DisplayManager::class.java)
                 ?.displays.orEmpty()
                 .filter { it.displayId != Display.DEFAULT_DISPLAY }
                 .map { display ->
                     val size = sizeOf(display)
                     DisplayInfo(display.displayId, display.name, size.x, size.y, adbOnly = false)
                 }
+
+        /**
+         * All currently available secondary displays. Merges displays visible to the app via
+         * [DisplayManager] with private displays only reachable through the ADB shell, so the
+         * picker can show the cluster projection display even when the stock navigation owns it.
+         * Must be called from a background thread (ADB socket I/O).
+         */
+        fun listPresentationDisplays(context: Context): List<DisplayInfo> {
+            val dm = dmDisplays(context)
             val adb = adbListDisplays(context).filter { a -> dm.none { it.displayId == a.displayId } }
             return (dm + adb).sortedBy { it.displayId }
         }
 
         /**
-         * Resolve the user's manual selection against all currently available secondary displays
-         * (both [DisplayManager] and ADB-only). Returns null when no manual override is
-         * configured or the stored name/size cannot be matched.
+         * Resolve the user's manual selection against [DisplayManager] displays only. Returns
+         * null when no manual override is configured or the stored name/size cannot be matched
+         * among app-visible displays. Safe to call from the main thread.
          */
         fun manualDisplayInfo(context: Context): DisplayInfo? {
             val manual = AirPlayPersistence.loadManualClusterDisplay(context) ?: return null
-            val all = listPresentationDisplays(context)
-            val byName = all.filter { it.name == manual.name }
+            val byName = dmDisplays(context).filter { it.name == manual.name }
             if (byName.isEmpty()) return null
             if (manual.width > 0 && manual.height > 0) {
                 byName.firstOrNull { it.width == manual.width && it.height == manual.height }
                     ?.let { return it }
             }
             return byName.first()
+        }
+
+        /**
+         * True when the user saved a manual cluster display that is NOT visible to
+         * [DisplayManager] — i.e. it must be reached through the ADB shell. Safe on main thread.
+         */
+        fun isManualAdbOnly(context: Context): Boolean {
+            val manual = AirPlayPersistence.loadManualClusterDisplay(context) ?: return false
+            return dmDisplays(context).none { it.name == manual.name }
         }
 
         /**
@@ -344,8 +360,9 @@ internal class ClusterMapPresentation(
             }
             val manual = AirPlayPersistence.loadManualClusterDisplay(context)
             appendLine("manualClusterDisplay=${manual?.let { "${it.name} ${it.width}x${it.height}" } ?: "none"}")
+            appendLine("manualAdbOnly=${isManualAdbOnly(context)}")
             val manualInfo = manualDisplayInfo(context)
-            appendLine("manualResolved=${manualInfo?.let { "${it.displayId}:${it.name} ${it.width}x${it.height} adbOnly=${it.adbOnly}" } ?: "none"}")
+            appendLine("manualResolved=${manualInfo?.let { "${it.displayId}:${it.name} ${it.width}x${it.height}" } ?: "none"}")
             val selected = findDisplay(context)
             append("selectedCluster=${selected?.let { "${it.displayId}:${it.name}" } ?: "none"}")
         }
