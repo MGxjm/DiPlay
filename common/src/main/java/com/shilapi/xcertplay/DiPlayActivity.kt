@@ -708,8 +708,9 @@ class DiPlayActivity : ComponentActivity() {
                 card.addView(label(getString(R.string.oem_cluster_map_restart_notice), 14, MUTED))
             }
             val clusterDisplay = ClusterMapPresentation.findDisplay(this)
-            val diLink4 = adbCluster ||
-                (clusterDisplay != null && DiLink4ClusterDisplay.matches(clusterDisplay.name))
+            val diLink4 = adbCluster || (clusterDisplay != null &&
+                !DiLink51ClusterLayout.isDiLink5ProjectionName(clusterDisplay.name) &&
+                DiLink4ClusterDisplay.matches(clusterDisplay.name))
             val clusterMapEnabled = AirPlayPersistence.loadClusterMapEnabled(this)
             toggle(card, getString(R.string.carplay_map_on_instrument_cluster_experimental),
                 if (clusterDisplay != null || adbCluster) getString(R.string.shows_the_iphone_s_cluster_map_on_the_instrument_cluster_c)

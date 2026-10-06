@@ -1011,7 +1011,11 @@ class CarPlayHostActivity : ComponentActivity() {
                         appendLog("Cluster map: fixed 1920x720 stream; layout=$theme viewport=$plan")
                     }
                 }
-                if (DiLink4ClusterDisplay.matches(display.name)) {
+                // A DiLink 5 projection surface keeps its own path even when the measured firmware
+                // fingerprint does not match, so the DiLink 4/3 fixed stream takes only other BYD
+                // fission/xdja surfaces.
+                if (!DiLink51ClusterLayout.isDiLink5ProjectionName(display.name) &&
+                    DiLink4ClusterDisplay.matches(display.name)) {
                     return DiLink4ClusterDisplay.streamConfig(
                         AirPlayPersistence.loadClusterContent(this),
                         AirPlayPersistence.loadClusterMarkerHorizontalStep(this),

@@ -14,16 +14,14 @@ class DiLink3ClusterRecoveryJournalTest {
             commitsAllowed
         }
         val commands = mutableListOf<String>()
-        val session = DiLink3ClusterModeSession({ commands.add(it); ok }, { journal.pending }, journal::save,
-            projectionStepDelay = {})
+        val session = DiLink3ClusterModeSession({ commands.add(it); ok }, { journal.pending }, journal::save)
         repeat(2) { assertFalse(session.apply(BydDiLink3ClusterMode.Mode.PROJECTION)) }
         assertTrue(memory)
         assertFalse(journal.pending)
         assertTrue(commands.isEmpty())
         commitsAllowed = true
         assertTrue(session.apply(BydDiLink3ClusterMode.Mode.PROJECTION))
-        assertEquals(listOf(BydDiLink3ClusterMode.Mode.PROJECTION.entryCommand,
-            BydDiLink3ClusterMode.Mode.PROJECTION.command), commands)
+        assertEquals(listOf(BydDiLink3ClusterMode.Mode.PROJECTION.command), commands)
         assertTrue(journal.pending)
     }
 
