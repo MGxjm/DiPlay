@@ -65,6 +65,9 @@ object AirPlayPersistence {
     private const val KEY_MEDIA_BUFFER_MS = "media_buffer_ms"
     private const val KEY_MAIN_BUFFERED_AUDIO = "main_buffered_audio"
     private const val KEY_CLUSTER_MAP = "cluster_map_enabled"
+    private const val KEY_CLUSTER_DISPLAY_NAME = "cluster_display_name"
+    private const val KEY_CLUSTER_DISPLAY_WIDTH = "cluster_display_width"
+    private const val KEY_CLUSTER_DISPLAY_HEIGHT = "cluster_display_height"
     private const val KEY_ADB_CLUSTER_ACTIVITY = "adb_cluster_activity_enabled"
     private const val KEY_CENTER_MAP_OVERLAY = "center_map_overlay"
     private const val KEY_CENTER_MAP_AUTO_HIDE = "center_map_auto_hide"
@@ -564,6 +567,40 @@ object AirPlayPersistence {
 
     fun saveClusterMapEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CLUSTER_MAP, enabled).apply()
+    }
+
+    /**
+     * Manually selected cluster projection display, matched by name (and size when stored).
+     * Android display ids are not stable across reboots, so the name is the primary key.
+     * Returns null when no manual override is configured (automatic selection is used).
+     */
+    data class ManualClusterDisplay(val name: String, val width: Int, val height: Int)
+
+    fun loadManualClusterDisplay(context: Context): ManualClusterDisplay? {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val name = prefs.getString(KEY_CLUSTER_DISPLAY_NAME, null)?.takeIf { it.isNotBlank() } ?: return null
+        return ManualClusterDisplay(
+            name = name,
+            width = prefs.getInt(KEY_CLUSTER_DISPLAY_WIDTH, 0),
+            height = prefs.getInt(KEY_CLUSTER_DISPLAY_HEIGHT, 0),
+        )
+    }
+
+    fun saveManualClusterDisplay(context: Context, name: String, width: Int, height: Int) {
+        require(name.isNotBlank()) { "display name must not be blank" }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_CLUSTER_DISPLAY_NAME, name)
+            .putInt(KEY_CLUSTER_DISPLAY_WIDTH, width.coerceAtLeast(0))
+            .putInt(KEY_CLUSTER_DISPLAY_HEIGHT, height.coerceAtLeast(0))
+            .apply()
+    }
+
+    fun clearManualClusterDisplay(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .remove(KEY_CLUSTER_DISPLAY_NAME)
+            .remove(KEY_CLUSTER_DISPLAY_WIDTH)
+            .remove(KEY_CLUSTER_DISPLAY_HEIGHT)
+            .apply()
     }
 
     /** The dashboard map as a card on the centre screen while DiPlay is in the background. */

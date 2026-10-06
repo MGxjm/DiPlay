@@ -191,8 +191,41 @@ internal class ClusterMapPresentation(
     companion object {
         const val TAG = "DiPlay-Cluster"
 
+        /** Summary of a presentation display shown in the manual-selection picker. */
+        data class DisplayInfo(val displayId: Int, val name: String, val width: Int, val height: Int)
+
+        /** All currently available presentation (external/virtual) displays. */
+        fun listPresentationDisplays(context: Context): List<DisplayInfo> =
+            context.getSystemService(DisplayManager::class.java)
+                ?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
+                ?.map { display ->
+                    val size = sizeOf(display)
+                    DisplayInfo(display.displayId, display.name, size.x, size.y)
+                }.orEmpty()
+
+        /**
+         * Display chosen by the user in settings, matched against the currently available
+         * presentation displays by name (and size when the stored size is positive).
+         * Returns null when no manual override is configured or it cannot be found.
+         */
+        private fun manualDisplay(context: Context): Display? {
+            val manual = AirPlayPersistence.loadManualClusterDisplay(context) ?: return null
+            val displays = context.getSystemService(DisplayManager::class.java)
+                ?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).orEmpty()
+            val byName = displays.filter { it.name == manual.name }
+            if (byName.isEmpty()) return null
+            if (manual.width > 0 && manual.height > 0) {
+                byName.firstOrNull {
+                    val size = sizeOf(it)
+                    size.x == manual.width && size.y == manual.height
+                }?.let { return it }
+            }
+            return byName.first()
+        }
+
         /** Keep the 5/5.1 selection order, then try the measured DiLink 4 projection display. */
         fun findDisplay(context: Context, theme: DiLink51ClusterLayout.Theme = DiLink51ClusterLayout.theme(context)): Display? {
+            manualDisplay(context)?.let { return it }
             val displays = context.getSystemService(DisplayManager::class.java)
                 ?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION) ?: return null
             val name = DiLink51ClusterLayout.displayName(
@@ -228,6 +261,8 @@ internal class ClusterMapPresentation(
             val presentations = context.getSystemService(DisplayManager::class.java)
                 ?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).orEmpty()
             appendLine("presentationDisplayIds=${presentations.joinToString { it.displayId.toString() }}")
+            val manual = AirPlayPersistence.loadManualClusterDisplay(context)
+            appendLine("manualClusterDisplay=${manual?.let { "${it.name} ${it.width}x${it.height}" } ?: "none"}")
             val selected = findDisplay(context)
             append("selectedCluster=${selected?.let { "${it.displayId}:${it.name}" } ?: "none"}")
         }

@@ -580,6 +580,11 @@
     <string name="adb_cluster_routing">Launching cluster map through ADB…</string>
     <string name="adb_cluster_routed">Cluster task routed; waiting for iPhone map</string>
     <string name="adb_cluster_route_failed">Cluster launch failed; export diagnostics.</string>
+    <string name="cluster_display_selection">Projection display</string>
+    <string name="cluster_display_selection_description">Manually pick the screen that receives the cluster map. The choice is remembered and preferred on the next launch; if that screen is unavailable, automatic selection is used as a fallback.</string>
+    <string name="cluster_display_auto">Automatic</string>
+    <string name="cluster_display_none">No projection displays found. Make sure the cluster projection is enabled in the car.</string>
+    <string name="cluster_display_option">%1$s (%2$dx%3$d)</string>
     <string name="open_diplay_settings_hint">In CarPlay, swipe down with %1$d fingers to open DiPlay settings.</string>
     <string name="carplay_controls">CarPlay controls</string>
     <string name="settings_gesture_fingers">Open settings · swipe with %1$d fingers (tap to change)</string>

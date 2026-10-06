@@ -707,6 +707,51 @@ class DiPlayActivity : ComponentActivity() {
                 reconnectForClusterMap()
             }
             if (clusterMapEnabled) {
+                // Manual cluster projection display selection. The picked screen is remembered
+                // (by name + size) and preferred on the next launch; auto is the fallback.
+                run {
+                    val title = getString(R.string.cluster_display_selection)
+                    fun currentLabel(): String {
+                        val saved = AirPlayPersistence.loadManualClusterDisplay(this@DiPlayActivity)
+                        return saved?.let { getString(R.string.cluster_display_option, it.name, it.width, it.height) }
+                            ?: getString(R.string.cluster_display_auto)
+                    }
+                    val picker = button("$title · ${currentLabel()}", false) {}.apply { isAllCaps = false }
+                    picker.setOnClickListener {
+                        val displays = ClusterMapPresentation.listPresentationDisplays(this@DiPlayActivity)
+                        if (displays.isEmpty()) {
+                            AlertDialog.Builder(this@DiPlayActivity)
+                                .setTitle(title)
+                                .setMessage(R.string.cluster_display_none)
+                                .setPositiveButton(R.string.close, null)
+                                .show()
+                            return@setOnClickListener
+                        }
+                        val saved = AirPlayPersistence.loadManualClusterDisplay(this@DiPlayActivity)
+                        val options = mutableListOf(getString(R.string.cluster_display_auto))
+                        options.addAll(displays.map { getString(R.string.cluster_display_option, it.name, it.width, it.height) })
+                        var pendingSelection = if (saved == null) 0 else
+                            displays.indexOfFirst { it.name == saved.name && it.width == saved.width && it.height == saved.height }
+                                .let { if (it >= 0) it + 1 else 0 }
+                        AlertDialog.Builder(this@DiPlayActivity)
+                            .setTitle(title)
+                            .setSingleChoiceItems(options.toTypedArray(), pendingSelection) { _, index -> pendingSelection = index }
+                            .setPositiveButton(getString(R.string.save)) { _, _ ->
+                                if (pendingSelection == 0) {
+                                    AirPlayPersistence.clearManualClusterDisplay(this@DiPlayActivity)
+                                } else {
+                                    val picked = displays[pendingSelection - 1]
+                                    AirPlayPersistence.saveManualClusterDisplay(this@DiPlayActivity, picked.name, picked.width, picked.height)
+                                }
+                                picker.text = "$title · ${currentLabel()}"
+                                reconnectForClusterMap()
+                            }
+                            .setNegativeButton(R.string.cancel, null)
+                            .show()
+                    }
+                    card.addView(picker, matchButton(0, 60))
+                    card.addView(space(8))
+                }
                 toggle(card, getString(R.string.center_map_card),
                     if (clusterDisplay != null || adbCluster) getString(R.string.center_map_card_description)
                     else getString(R.string.center_map_card_virtual_description),
