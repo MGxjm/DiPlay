@@ -717,7 +717,7 @@ class DiPlayActivity : ComponentActivity() {
                             ?: getString(R.string.cluster_display_auto)
                     }
                     val picker = button("$title · ${currentLabel()}", false) {}.apply { isAllCaps = false }
-                    picker.setOnClickListener {
+                    fun pick() {
                         // ADB socket calls must not run on the main thread.
                         val loading = AlertDialog.Builder(this@DiPlayActivity)
                             .setMessage(getString(R.string.scanning_displays))
@@ -744,7 +744,11 @@ class DiPlayActivity : ComponentActivity() {
                                     val builder = AlertDialog.Builder(this@DiPlayActivity)
                                         .setTitle(title).setMessage(msg)
                                     if (probe.access != com.shilapi.xcertplay.adb.LocalAdb.Access.READY) {
-                                        builder.setPositiveButton(R.string.adb_cluster_authorize) { _, _ -> authorizeClusterRouting() }
+                                        // Once the car approves the key, rescan so the list appears
+                                        // without another tap on the picker.
+                                        builder.setPositiveButton(R.string.adb_cluster_authorize) { _, _ ->
+                                            authorizeClusterRouting { pick() }
+                                        }
                                     }
                                     builder.setNegativeButton(R.string.close, null).show()
                                     return@runOnUiThread
@@ -776,6 +780,7 @@ class DiPlayActivity : ComponentActivity() {
                             }
                         }, "cluster-display-probe").start()
                     }
+                    picker.setOnClickListener { pick() }
                     card.addView(picker, matchButton(0, 60))
                     card.addView(space(8))
                 }
@@ -2975,7 +2980,7 @@ class DiPlayActivity : ComponentActivity() {
         }
         connectButton?.isEnabled = setupError == null
     }
-    private fun authorizeClusterRouting() {
+    private fun authorizeClusterRouting(onReady: (() -> Unit)? = null) {
         val app = applicationContext
         Thread({
             val result = runCatching {
@@ -2987,7 +2992,10 @@ class DiPlayActivity : ComponentActivity() {
                 if (!isFinishing && !isDestroyed) {
                     toast(if (result == com.shilapi.xcertplay.adb.LocalAdb.Access.READY)
                         getString(R.string.adb_access_ready) else getString(R.string.adb_not_approved))
-                    if (result == com.shilapi.xcertplay.adb.LocalAdb.Access.READY) ClusterActivityOutput.retry()
+                    if (result == com.shilapi.xcertplay.adb.LocalAdb.Access.READY) {
+                        ClusterActivityOutput.retry()
+                        onReady?.invoke()
+                    }
                 }
             }
         }, "adb-cluster-authorize").start()
