@@ -114,10 +114,13 @@ ChatGPT/Codex. DiPlay/xcertplay authors and existing licence notices are retaine
 This route is shared with PR #187; there is only one decoder-surface owner.
 The stock map (`com.byd.automap`) is handed over automatically, with no setting:
 
-- When DiPlay opens the DiLink 4 projection it first re-enables the whole stock map,
-  forces the instrument to Small screen navi, and opens the half-screen projection
-  (17). The stock map's own cluster activity rebuilds the instrument's projection
-  window, which the instrument otherwise latches.
+- When DiPlay opens the DiLink 4 projection it first re-enables the whole stock map and
+  forces the instrument to Small screen navi. The stock map's own cluster activity
+  rebuilds the instrument's projection window, which the instrument otherwise latches.
+  The projection command then follows the instrument's navi mode, never a fixed
+  half-screen projection (17): Small screen navi re-sends nothing (its window is
+  latched), Full screen navi re-opens the full-screen projection (16), and a closed
+  projection returns the stock view (18).
 - Once DiPlay's own projection is confirmed on the cluster, the whole stock-map
   package is disabled so it cannot grab the surface back. The original state is
   journaled before the first write and restored on failure, stop, or the next app

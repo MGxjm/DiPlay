@@ -38,7 +38,9 @@ internal object BydDiLink3ClusterMode {
      * projection command follows the instrument's navi mode:
      * - Turn-on-by-navi only shows the text guidance card, never the projection map, so it needs
      *   the simple-navigation command (39) while guidance is active.
-     * - Full screen navi needs the full-screen projection (16) while the map is shown.
+     * - Full screen navi always needs the full-screen projection (16): it is the only command that
+     *   opens the full window, so a mode that falls through to the stock view (18) would blank the
+     *   dashboard until the driver changed the wheel mode again.
      * - Small screen navi (and any unknown mode) uses the half-screen projection (17).
      */
     fun desired(mapShown: Boolean, guidanceActive: Boolean, requested: Mode?,
@@ -46,7 +48,7 @@ internal object BydDiLink3ClusterMode {
     ): Mode? = when {
         instrumentMode == BydClusterNaviMode.TURN_ON_BY_NAVI ->
             if (guidanceActive) Mode.SIMPLE_NAVIGATION else null
-        mapShown && instrumentMode == BydClusterNaviMode.FULL -> Mode.FULL_PROJECTION
+        instrumentMode == BydClusterNaviMode.FULL -> Mode.FULL_PROJECTION
         mapShown -> Mode.PROJECTION
         guidanceActive -> Mode.SIMPLE_NAVIGATION
         requested != null -> Mode.STOCK

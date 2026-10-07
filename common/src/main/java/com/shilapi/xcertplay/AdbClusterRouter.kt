@@ -170,16 +170,18 @@ internal object AdbClusterRouter {
                     appendLine("routeTarget=${display ?: "none"}")
                     appendLine("displayOverride=${override?.describe() ?: "auto"}")
                     if (display == null || !enabled(context) || !prepare(display)) return@use
-                    // Re-enable the stock map so its cluster activity rebuilds the instrument's
-                    // projection window, pick Small screen navi and open the half-screen projection
-                    // (17), and only then start DiPlay's own projection. A refused prime must not
-                    // stop the launch: the stock map then simply keeps the surface, whereas
-                    // returning here would show nothing at all. The stock map is disabled again once
-                    // DiPlay's projection is confirmed (see AdbClusterActivity).
-                    val primed = !holdStockMap || com.shilapi.xcertplay.hud.BydOemClusterNavi.primeForLaunch(context) {
-                        enabled(context) && prepare(display)
-                    }
-                    appendLine("stockMapPrimeReady=$primed")
+                    // The first launch re-enables the stock map so its cluster activity rebuilds the
+                    // instrument's projection window, and picks Small screen navi; every launch then
+                    // re-sends the projection command the instrument's navi mode asks for (nothing for
+                    // Small, 16 for Full, 18 while it is off), and only then does DiPlay start its own
+                    // projection. A refused prepare must not stop the launch: the stock map then simply
+                    // keeps the surface, whereas returning here would show nothing at all. The stock map
+                    // is disabled again once DiPlay's projection is confirmed (see AdbClusterActivity).
+                    val prepared = !holdStockMap ||
+                        com.shilapi.xcertplay.hud.BydOemClusterNavi.prepareForLaunch(context) {
+                            enabled(context) && prepare(display)
+                        }
+                    appendLine("stockMapPrimeReady=$prepared")
                     if (!enabled(context) || !prepare(display)) return@use
                     val output = adb.shell(launchCommand(context.packageName, display, token)).orEmpty()
                     success = accepted(output)

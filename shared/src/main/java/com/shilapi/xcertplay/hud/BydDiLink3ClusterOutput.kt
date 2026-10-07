@@ -80,6 +80,32 @@ internal object BydDiLink3ClusterOutput {
         }
     }
 
+    /**
+     * The display route launched while DiPlay already projected: re-send only the command the
+     * instrument's current navi mode needs, never the launch prime.
+     * - Small screen navi does not re-send: the window it latched is still there.
+     * - Full screen navi re-opens the full-screen projection (16), the only command that brings the
+     *   full window up.
+     * - A closed projection (and turn-on-by-navi, which shows the text card only) returns the stock
+     *   view (18).
+     * An unreadable mode sends nothing, and the session's de-duplication is bypassed on purpose: this
+     * is a re-send, so the command has to go out even when DiPlay already applied that mode.
+     */
+    fun resendForCurrentMode(appContext: Context) {
+        val mode = when (instrumentMode) {
+            null, BydClusterNaviMode.SMALL -> return
+            BydClusterNaviMode.FULL -> BydDiLink3ClusterMode.Mode.FULL_PROJECTION
+            else -> BydDiLink3ClusterMode.Mode.STOCK
+        }
+        initialize(appContext)
+        worker.execute {
+            val app = context ?: return@execute
+            runCatching { BydDiLink3ClusterMode.accepted(shell.run(app, mode.command)) }
+                .onFailure { Log.w(TAG, "Cluster projection re-send failed", it) }
+                .onSuccess { accepted -> if (!accepted) Log.w(TAG, "Cluster projection re-send refused") }
+        }
+    }
+
     private fun initialize(appContext: Context) {
         context = appContext.applicationContext
         if (retryStarted.compareAndSet(false, true)) {
