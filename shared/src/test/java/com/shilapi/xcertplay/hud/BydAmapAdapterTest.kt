@@ -49,9 +49,10 @@ class BydAmapAdapterTest {
         // Full screen navi uses it before the map window is reported too: 16 is the only command that
         // opens the full window, while the stock view (18) would blank the dashboard.
         assertEquals(BydDiLink3ClusterMode.Mode.FULL_PROJECTION, mode.desired(false, false, null, BydClusterNaviMode.FULL))
-        // Turn-on-by-navi never shows the map: it uses the text-guidance card while navigating.
+        // Turn-on-by-navi never shows the map: it always asks for the text-guidance card (39), even
+        // before guidance is reported — the head units that report this mode never feed that flag.
         assertEquals(BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION, mode.desired(true, true, null, BydClusterNaviMode.TURN_ON_BY_NAVI))
-        assertNull(mode.desired(true, false, null, BydClusterNaviMode.TURN_ON_BY_NAVI))
+        assertEquals(BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION, mode.desired(true, false, null, BydClusterNaviMode.TURN_ON_BY_NAVI))
         assertEquals(BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION, mode.desired(false, true, BydDiLink3ClusterMode.Mode.PROJECTION, null))
         assertEquals(BydDiLink3ClusterMode.Mode.STOCK, mode.desired(false, false, BydDiLink3ClusterMode.Mode.PROJECTION, null))
     }

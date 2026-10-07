@@ -37,7 +37,8 @@ internal object BydDiLink3ClusterMode {
      * The mode to request now, or null while DiPlay has never changed the stock mode. The
      * projection command follows the instrument's navi mode:
      * - Turn-on-by-navi only shows the text guidance card, never the projection map, so it needs
-     *   the simple-navigation command (39) while guidance is active.
+     *   the simple-navigation command (39). The mode read alone drives it: the guidance flag never
+     *   reaches this branch, because it is only fed on DiLink 3, which reports no mode at all.
      * - Full screen navi always needs the full-screen projection (16): it is the only command that
      *   opens the full window, so a mode that falls through to the stock view (18) would blank the
      *   dashboard until the driver changed the wheel mode again.
@@ -46,8 +47,7 @@ internal object BydDiLink3ClusterMode {
     fun desired(mapShown: Boolean, guidanceActive: Boolean, requested: Mode?,
         instrumentMode: BydClusterNaviMode?,
     ): Mode? = when {
-        instrumentMode == BydClusterNaviMode.TURN_ON_BY_NAVI ->
-            if (guidanceActive) Mode.SIMPLE_NAVIGATION else null
+        instrumentMode == BydClusterNaviMode.TURN_ON_BY_NAVI -> Mode.SIMPLE_NAVIGATION
         instrumentMode == BydClusterNaviMode.FULL -> Mode.FULL_PROJECTION
         mapShown -> Mode.PROJECTION
         guidanceActive -> Mode.SIMPLE_NAVIGATION

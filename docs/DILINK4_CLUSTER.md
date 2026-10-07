@@ -127,9 +127,10 @@ The stock map (`com.byd.automap`) is handed over automatically, with no setting:
   journaled before the first write and restored on failure, stop, or the next app
   launch after a crash. A failed restoration retains the journal and retries using
   already authorized local ADB; force-stop cannot guarantee immediate restoration.
-- The driver still picks the mode (Full or Small screen navi) in the car's instrument
-  cluster menu. When the mode becomes Full, DiPlay announces the new instrument state
-  and sends the full-screen projection (16) so the dashboard follows.
+- The driver still picks the mode in the car's instrument cluster menu. When the mode becomes
+  Full, DiPlay announces the new instrument state and sends the full-screen projection (16) so
+  the dashboard follows; "Turn on by navi", which shows no projection, sends the simple-navigation
+  card (39) so CarPlay's turn card follows instead.
 
 Requires authorized local ADB.
 

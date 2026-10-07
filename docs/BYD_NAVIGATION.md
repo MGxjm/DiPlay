@@ -27,7 +27,8 @@ is selected: they open the instrument's projection window. DiPlay reads the inst
 every second and keeps the projection command in sync with it: Small screen navi sends 17, Full
 screen navi sends 16 directly, without closing the projection first (a close would leave the
 dashboard blank until something reopened it), which is what makes the instrument lay the window out
-in the full-width layout. The recovery marker is durable before a
+in the full-width layout. "Turn on by navi" never shows the projection map, so it sends 39, the
+native turn card, instead. The recovery marker is durable before a
 command; failed restoration retains it and blocks new output until stock mode is restored.
 
 The projection display does not exist after the car starts until the cluster has projected once. When DiPlay opens with BYD navigation on and the display is missing, it runs 16 (projection on), 35 (Di4.0 mode, which creates the display) and 18, as BYD DashCast does; the cluster shows an empty projection area for about six seconds. The display then stays until the car restarts. The map window selects this display through the same exact-name and 1920x720 check as DiLink 4.0. If a CarPlay session started before the display existed, DiPlay shows the map window when the display appears and reconnects once so the iPhone sends the 1920x720 cluster stream.
