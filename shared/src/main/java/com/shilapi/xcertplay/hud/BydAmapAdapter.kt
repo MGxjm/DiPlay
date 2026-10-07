@@ -2,10 +2,11 @@ package com.shilapi.xcertplay.hud
 
 /**
  * The stock AMap adapter that turns AUTONAVI_STANDARD_BROADCAST_SEND broadcasts into cluster guidance.
- * DiLink 3 and DiLink 4 ship the same adapter and take the same cluster-mode commands, so this must
- * not gate anything the cluster needs: the guidance card, the preformatted `*_AUTO` text and the
- * simple-navigation command are identical on both, and only the projection-display creation below
- * still keys on the package.
+ * DiLink 3 and DiLink 4 ship it as com.example.amapservice and take the same cluster-mode commands, so
+ * nothing the cluster needs may be gated on DiLink 3 versus DiLink 4. DiLink 5 ships
+ * com.byd.amapservice instead and draws the cluster natively, so it must stay on its own route; the
+ * package name, not the projection display name (DiLink 4 exposes the same one), is what tells them
+ * apart.
  */
 internal enum class BydAmapAdapter(val packageName: String, val needsSimpleNavigationMode: Boolean) {
     BYD("com.byd.amapservice", needsSimpleNavigationMode = false),
