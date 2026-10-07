@@ -17,9 +17,20 @@ enum class BydClusterNaviMode(val code: Int, val label: String) {
     companion object {
         private const val INSTRUMENT_DEVICE = 1007
         private const val NAVI_TYPE_GET = 0x40C03032
+        private const val NAVI_TYPE_SET = 0x4C10A018
         private const val GET_INT = 5
+        private const val SET_INT = 6
 
         const val READ_COMMAND = "service call autoservice $GET_INT i32 $INSTRUMENT_DEVICE i32 $NAVI_TYPE_GET"
+
+        /**
+         * Forces the instrument to Small screen navi, the mode DiPlay opens the DiLink 4 projection
+         * in. The stock map used to write it when the driver picked the mode; DiPlay writes it before
+         * its own launch so the instrument opens the half-screen window (17). The driver changes the
+         * mode on the wheel afterwards, and DiPlay follows Full screen navi from the read below.
+         */
+        fun selectSmallCommand(): String =
+            "service call autoservice $SET_INT i32 $INSTRUMENT_DEVICE i32 $NAVI_TYPE_SET i32 ${SMALL.code}"
 
         fun fromCode(code: Int): BydClusterNaviMode? = entries.firstOrNull { it.code == code }
 

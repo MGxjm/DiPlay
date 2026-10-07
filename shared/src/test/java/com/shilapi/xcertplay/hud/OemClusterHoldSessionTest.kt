@@ -34,46 +34,37 @@ class OemClusterHoldSessionTest {
         for (original in 0..4) {
             val r = Rig(original)
             val s = r.session()
-            assertTrue(s.acquire(BydOemClusterHold.COMPONENT, "one") { r.current })
+            assertTrue(s.disablePackage("one") { r.current })
             assertEquals("journal=$original", r.events.first())
             assertEquals(3, r.state)
+            assertEquals(OemClusterHoldSession.Target.PACKAGE, r.journal?.target)
             assertTrue(s.release("one"))
             assertEquals(original, r.state)
             assertNull(r.journal)
         }
     }
 
-    @Test fun diskFailurePreventsAnyComponentOemWrite() {
+    @Test fun diskFailurePreventsAnyOemWrite() {
         val r = Rig().apply { journalWritable = false }
-        assertFalse(r.session().acquire(BydOemClusterHold.COMPONENT, "one") { true })
+        assertFalse(r.session().disablePackage("one") { true })
         assertEquals(0, r.state)
         assertFalse(r.events.any { it.startsWith("set=") })
     }
 
-    @Test fun packageModeDisablesWithoutJournalingAndStaysDisabledAfterRelease() {
-        val r = Rig(1)
-        val s = r.session()
-        assertTrue(s.acquire(BydOemClusterHold.PACKAGE, "one") { true })
-        assertEquals(3, r.state)
-        assertNull(r.journal)
-        assertTrue(s.release("one"))
-        assertEquals(3, r.state)
-        assertNull(r.journal)
-    }
-
-    @Test fun offModeReEnablesAPreviousLongTermPackageDisable() {
-        val r = Rig(3).apply { /* pretend a long-term PACKAGE disable left state at DISABLED_USER */ }
-        val s = r.session()
-        assertTrue(s.acquire(BydOemClusterHold.OFF, "one") { true })
+    @Test fun restoreStockMapReEnablesBothTargetsAndClearsTheJournal() {
+        val r = Rig(3).apply {
+            journal = OemClusterHoldSession.Journal(OemClusterHoldSession.Target.PACKAGE, 3, "one")
+        }
+        assertTrue(r.session().restoreStockMap())
         assertEquals(1, r.state)
         assertNull(r.journal)
     }
 
-    @Test fun queuedStopBeforeAcquirePreventsDisable() {
+    @Test fun queuedStopBeforeDisablePreventsIt() {
         val r = Rig()
         val s = r.session()
         val queue = java.util.ArrayDeque<() -> Unit>()
-        queue.add { assertFalse(s.acquire(BydOemClusterHold.COMPONENT, "one") { r.current }) }
+        queue.add { assertFalse(s.disablePackage("one") { r.current }) }
         r.current = false
         queue.add { assertTrue(s.release("one")) }
         while (!queue.isEmpty()) queue.removeFirst().invoke()
@@ -84,15 +75,15 @@ class OemClusterHoldSessionTest {
         val r = Rig()
         val s = r.session()
         r.duringCommand = { r.current = false }
-        assertFalse(s.acquire(BydOemClusterHold.COMPONENT, "one") { r.current })
+        assertFalse(s.disablePackage("one") { r.current })
         assertEquals(0, r.state)
         assertNull(r.journal)
     }
 
-    @Test fun restartRecoversAComponentCrashAfterDisable() {
+    @Test fun restartRecoversACrashAfterDisable() {
         val r = Rig(1)
         val s = r.session()
-        assertTrue(s.acquire(BydOemClusterHold.COMPONENT, "one") { true })
+        assertTrue(s.disablePackage("one") { true })
         assertTrue(s.release())
         assertEquals(1, r.state)
         assertNull(r.journal)
@@ -100,7 +91,7 @@ class OemClusterHoldSessionTest {
 
     @Test fun restartAfterJournalBeforeMutationDoesNotChangeTheOemState() {
         val r = Rig(2)
-        r.journal = OemClusterHoldSession.Journal(OemClusterHoldSession.Target.COMPONENT, 2, "one")
+        r.journal = OemClusterHoldSession.Journal(OemClusterHoldSession.Target.PACKAGE, 2, "one")
         assertTrue(r.session().release())
         assertEquals(2, r.state)
         assertFalse(r.events.any { it.startsWith("set=") })
@@ -109,7 +100,7 @@ class OemClusterHoldSessionTest {
     @Test fun failedRestorationKeepsJournalAndCanBeRetried() {
         val r = Rig(1)
         val s = r.session()
-        assertTrue(s.acquire(BydOemClusterHold.COMPONENT, "one") { true })
+        assertTrue(s.disablePackage("one") { true })
         r.applyCommands = false
         r.commandsSucceed = false
         assertFalse(s.release("one"))
@@ -123,15 +114,15 @@ class OemClusterHoldSessionTest {
 
     @Test fun successfulCommandWithoutStateChangeCannotStartTheMirror() {
         val r = Rig().apply { applyCommands = false }
-        assertFalse(r.session().acquire(BydOemClusterHold.COMPONENT, "one") { true })
+        assertFalse(r.session().disablePackage("one") { true })
         assertEquals(0, r.state)
     }
 
     @Test fun staleReleaseCannotUndoANewerLease() {
         val r = Rig()
         val s = r.session()
-        assertTrue(s.acquire(BydOemClusterHold.COMPONENT, "one") { true })
-        assertTrue(s.acquire(BydOemClusterHold.COMPONENT, "two") { true })
+        assertTrue(s.disablePackage("one") { true })
+        assertTrue(s.disablePackage("two") { true })
         assertTrue(s.release("one"))
         assertEquals(3, r.state)
         assertEquals("two", r.journal?.lease)
@@ -139,7 +130,7 @@ class OemClusterHoldSessionTest {
         assertEquals(0, r.state)
     }
 
-    @Test fun componentCommandsUseTheFlattenedNameAndSupportAllOriginalStates() {
+    @Test fun oemCommandsUseTheFlattenedNameAndSupportAllOriginalStates() {
         val component = "com.byd.automap/com.byd.automap.extra.MeterActivity"
         assertEquals("pm disable-user --user 0 $component",
             BydOemClusterNavi.command(OemClusterHoldSession.Target.COMPONENT, 3))

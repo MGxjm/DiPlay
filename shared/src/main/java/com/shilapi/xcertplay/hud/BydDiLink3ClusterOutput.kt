@@ -64,21 +64,19 @@ internal object BydDiLink3ClusterOutput {
     }
 
     /**
-     * The driver changed the cluster navi mode on the wheel. The instrument keeps the projection
-     * window in its previous layout until it is opened again, so close it and re-apply the
-     * current mode; reopening makes the instrument take the newly selected layout. Runs on both
-     * DiLink 3 and DiLink 4 head units; the ADB route does not suppress these commands.
+     * The driver picked Full screen navi on the wheel. The instrument opens its full projection
+     * only when DiPlay asks for it (16), so this sends 16 directly: unlike a reopen, it does not
+     * close the projection first, which would leave the dashboard blank until something reopened it.
+     * Runs on both DiLink 3 and DiLink 4 head units; the ADB route does not suppress these commands.
      */
-    fun refreshProjection(appContext: Context) {
+    fun enterFullScreen(appContext: Context) {
+        instrumentMode = BydClusterNaviMode.FULL
         initialize(appContext)
         worker.execute {
             val app = context ?: return@execute
-            val mode = desiredMode() ?: return@execute
-            runCatching { state(app).refresh(mode) }
-                .onFailure { Log.w(TAG, "Cluster projection refresh will retry", it) }
-                .onSuccess { refreshed ->
-                    if (!refreshed) Log.w(TAG, "Cluster projection refresh pending recovery/retry")
-                }
+            runCatching { state(app).apply(BydDiLink3ClusterMode.Mode.FULL_PROJECTION) }
+                .onFailure { Log.w(TAG, "Full-screen projection will retry", it) }
+                .onSuccess { accepted -> if (!accepted) Log.w(TAG, "Full-screen projection pending recovery/retry") }
         }
     }
 

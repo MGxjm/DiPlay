@@ -136,7 +136,6 @@ internal object AdbClusterRouter {
             appendLine("ADB direct cluster launch capturedAt=${java.util.Date()}")
             appendLine("diLink3ModeSwitchSuppressed=" + AirPlayPersistence.loadAdbClusterEnabled(context))
             appendLine("calibrationOnly=${!holdStockMap}")
-            appendLine("stockMapHoldMode=" + com.shilapi.xcertplay.hud.BydOutputSettings.oemClusterHold(context))
             try {
                 LocalAdb(AdbKeys.load(context)).use { adb ->
                     val access = adb.connect(mayAsk = false)
@@ -151,15 +150,16 @@ internal object AdbClusterRouter {
                     appendLine("routeTarget=${display ?: "none"}")
                     appendLine("displayOverride=${override?.describe() ?: "auto"}")
                     if (display == null || !enabled(context) || !prepare(display)) return@use
-                    val held = !holdStockMap || com.shilapi.xcertplay.hud.BydOemClusterNavi.holdForLaunch(context, token) {
+                    // Re-enable the stock map so its cluster activity rebuilds the instrument's
+                    // projection window, pick Small screen navi and open the half-screen projection
+                    // (17), and only then start DiPlay's own projection. A refused prime must not
+                    // stop the launch: the stock map then simply keeps the surface, whereas
+                    // returning here would show nothing at all. The stock map is disabled again once
+                    // DiPlay's projection is confirmed (see AdbClusterActivity).
+                    val primed = !holdStockMap || com.shilapi.xcertplay.hud.BydOemClusterNavi.primeForLaunch(context) {
                         enabled(context) && prepare(display)
                     }
-                    appendLine("stockMapHoldReady=$held")
-                    // Holding the stock map only keeps it from taking the projection surface back.
-                    // A refused hold (firmware that rejects component state changes for the stock
-                    // map, or a hold that timed out) must not stop DiPlay's own projection: the
-                    // worst case is the stock map stays on top, whereas returning here shows
-                    // nothing at all.
+                    appendLine("stockMapPrimeReady=$primed")
                     if (!enabled(context) || !prepare(display)) return@use
                     val output = adb.shell(launchCommand(context.packageName, display, token)).orEmpty()
                     success = accepted(output)

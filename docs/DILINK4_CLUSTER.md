@@ -8,8 +8,12 @@ for the instrument-cluster stream. Other firmware has not been vehicle-tested.
 
 1. Enable the car's native cluster-map/projection mode.
 2. In DiPlay settings, enable **DiLink 4 cluster video via ADB (experimental)**.
-3. Tap **Authorize ADB / retry cluster routing** and approve the car's debugging
-   prompt. Local ADB must be available; background retries never request approval.
+   DiPlay requests the head unit's ADB access at that moment; approve the car's
+   debugging prompt. Local ADB must be available; background retries never request
+   approval.
+3. If the automatic match picks the wrong surface, choose **Instrument projection
+   display** — the switch's only child, whose single tap reads the head unit's
+   display list over ADB and opens the picker.
 4. Connect or reconnect the iPhone and open Apple Maps. The main CarPlay display
    stays on the head unit while the independent map appears on the cluster.
 
@@ -108,30 +112,22 @@ ChatGPT/Codex. DiPlay/xcertplay authors and existing licence notices are retaine
 ## Optional stock map and HUD text
 
 This route is shared with PR #187; there is only one decoder-surface owner.
-Stock-map holding defaults off and now has three levels:
+The stock map (`com.byd.automap`) is handed over automatically, with no setting:
 
-- **Not disabled** — leaves the stock map running. Picking this also re-enables
-  any previous long-term disable, restoring both the projection component and the
-  whole stock-map package to their default-enabled state and clearing the
-  recovery journal.
-- **Disabled while DiPlay is running** — journals the original state before
-  changing it, restores the exact original state on failure, stop, or the next
-  app launch after a crash. A failed restoration retains the journal and retries
-  using already authorized local ADB. If recovery cannot complete, the next held
-  launch is refused. Until recovery succeeds, the stock map can remain disabled;
-  force-stop cannot guarantee immediate restoration.
-- **Long-term disabled** — recommended. Disables the whole stock-map package
-  with no journal and no auto-restore: the stock map stays disabled after DiPlay
-  stops, so it cannot grab the instrument projection surface back from DiPlay.
-  Pick **Not disabled** to re-enable.
+- When DiPlay opens the DiLink 4 projection it first re-enables the whole stock map,
+  forces the instrument to Small screen navi, and opens the half-screen projection
+  (17). The stock map's own cluster activity rebuilds the instrument's projection
+  window, which the instrument otherwise latches.
+- Once DiPlay's own projection is confirmed on the cluster, the whole stock-map
+  package is disabled so it cannot grab the surface back. The original state is
+  journaled before the first write and restored on failure, stop, or the next app
+  launch after a crash. A failed restoration retains the journal and retries using
+  already authorized local ADB; force-stop cannot guarantee immediate restoration.
+- The driver still picks the mode (Full or Small screen navi) in the car's instrument
+  cluster menu. When the mode becomes Full, DiPlay announces the new instrument state
+  and sends the full-screen projection (16) so the dashboard follows.
 
-The stock map's projection component (`com.byd.automap/com.byd.automap.extra.MeterActivity`)
-is the target for the DiPlay-running level; the whole `com.byd.automap` package is
-the target for the long-term level. Requires authorized local ADB; applies after
-reconnecting. After enabling DiLink 4 projection, set the desired mode (Full or
-Small screen) in the car's instrument cluster menu, finish the other settings,
-then turn the car off and on again. Each switch of this setting requires
-restarting the car.
+Requires authorized local ADB.
 
 HUD text defaults off and yields to active navigation. Leaving guidance for text
 clears maneuver/distance records first. All model checks are lifted: HUD activates

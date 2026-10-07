@@ -22,11 +22,6 @@ class BydOptionalOutputSettingsTest {
         val prefs = app.getSharedPreferences("diplay_byd_outputs", Context.MODE_PRIVATE)
         prefs.edit().clear().commit()
         assertFalse(BydOutputSettings.hudSong(app))
-        assertEquals(BydOemClusterHold.OFF, BydOutputSettings.oemClusterHold(app))
-        prefs.edit().putBoolean("oem_cluster_freeze", true).commit()
-        assertEquals(BydOemClusterHold.PACKAGE, BydOutputSettings.oemClusterHold(app))
-        BydOutputSettings.setOemClusterHold(app, BydOemClusterHold.COMPONENT)
-        assertEquals(BydOemClusterHold.COMPONENT, BydOutputSettings.oemClusterHold(app))
     }
 
     @Test fun unconfiguredReceiverDoesNotEnableHudRegardlessOfFingerprint() {

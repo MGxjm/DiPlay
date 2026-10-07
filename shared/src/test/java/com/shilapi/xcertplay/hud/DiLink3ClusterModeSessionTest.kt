@@ -135,23 +135,6 @@ class DiLink3ClusterModeSessionTest {
         assertEquals(listOf(projection.command), commands)
     }
 
-    @Test fun refreshClosesAndReopensTheCurrentMode() {
-        val state = session()
-        assertTrue(state.apply(projection))
-        assertTrue(state.refresh(projection))
-        assertEquals(listOf(projection.command, stock.command, projection.command), commands)
-        assertTrue(pending)
-    }
-
-    @Test fun refreshThatCannotCloseLeavesRecoveryPending() {
-        val state = session()
-        assertTrue(state.apply(projection))
-        response = { null }
-        assertFalse(state.refresh(projection))
-        assertEquals(listOf(projection.command, stock.command), commands)
-        assertTrue(pending)
-    }
-
     @Test fun preparationUsesLatestDesiredModeAfterItsBlockingSteps() {
         val state = session()
         var desired: BydDiLink3ClusterMode.Mode? = simple

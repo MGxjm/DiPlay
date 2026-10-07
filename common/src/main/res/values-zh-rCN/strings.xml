@@ -467,7 +467,6 @@
     <string name="cluster_display_auto">自动</string>
     <string name="cluster_display_option">%1$s · %2$d×%3$d</string>
     <string name="cluster_display_option_classed">%1$s · %2$d×%3$d · %4$s</string>
-    <string name="cluster_display_rescan">从车机读取屏幕列表</string>
     <string name="cluster_display_scanning">正在通过 ADB 读取屏幕列表…</string>
     <string name="cluster_display_rescan_failed">无法通过 ADB 读取屏幕列表</string>
     <string name="cluster_display_setup_step1">首次配置 · 第 1 步：授权 ADB，DiPlay 才能读取车机的屏幕列表。</string>
@@ -594,7 +593,6 @@
     <string name="adb_cluster_activity_mode">DiLink 4 仪表视频（ADB，实验性）</string>
     <string name="adb_cluster_activity_description">通过内置ADB直接在已验证仪表副屏启动地图。请先授权ADB，再重新连接iPhone。</string>
     <string name="adb_cluster_authorize">授权 ADB / 重试仪表移动</string>
-    <string name="adb_cluster_open">重试仪表地图</string>
     <string name="adb_cluster_routing">正在通过ADB启动仪表地图…</string>
     <string name="adb_cluster_routed">仪表窗口已移动，等待 iPhone 地图</string>
     <string name="adb_cluster_route_failed">仪表启动失败，请导出诊断。</string>
@@ -662,13 +660,6 @@
     <string name="cluster_safe_area_reset">重置仪表安全区域</string>
     <string name="cluster_safe_area_hint">拖动四条绿色边界，保存后在下次 CarPlay 连接时生效。自定义区域会替代车辆标记偏移，重置后恢复。</string>
     <string name="cluster_safe_area_live_hint">在此拖动绿色边界，仪表会同步显示区域框。保存后重新连接生效；取消保留当前区域。</string>
-    <string name="oem_cluster_map">原车高德（AutoMap）</string>
-    <string name="oem_cluster_map_description">选择 DiPlay 投屏期间如何处理原车高德的仪表地图。不禁用：保持原车地图运行。DiPlay 运行期间禁用：仅暂停其仪表投屏，停止投屏后恢复原状。长期禁用：关闭整个原车地图，DiPlay 停止后仍保持关闭——切回不禁用可重新启用。需要已授权的本地 ADB，重新连接后生效。</string>
-    <string name="oem_cluster_hold_off">不禁用</string>
-    <string name="oem_cluster_hold_component">DiPlay 运行期间禁用</string>
-    <string name="oem_cluster_hold_package">长期禁用</string>
-    <string name="oem_cluster_map_recommendation">推荐：长期禁用，避免原车高德从 DiPlay 手中抢回仪表投影面。</string>
-    <string name="oem_cluster_map_restart_notice">开启 DiLink 4 投屏后，在车机仪表菜单中设置想要的模式（全屏或小屏），配置好其他设置后，关闭车机再次启动即可。每次切换本设置都需要重启车机。</string>
     <string name="song_on_hud">HUD 显示曲名或歌词</string>
     <string name="song_on_hud_description">无导航指引时显示手机提供的曲名或歌词，导航方向和道路名称优先。</string>
     <string name="hotspot_network_not_ready">热点网络未就绪</string>

@@ -78,7 +78,7 @@ The iPhone draws and streams the cluster map for the whole session, even while t
 
 Measured on the car: after `stopUI` the cluster stream carried no frames at all while the main screen went on as usual; after a switch on the wheel `showUI` went out about 0.6 s later and the map was back within a second. If the mode cannot be read (no ADB access), DiPlay keeps the map streaming as without the setting.
 
-Ordinary apps cannot read the mode: BYD's `INSTRUMENT_NAVI_TYPE` needs a BYD signature. The adb shell reads it through the `autoservice` binder (instrument device 1007, feature `0x40C03032`): `service call autoservice 5 i32 1007 i32 1086337074` → `Parcel(00000000 0000000N)`, N = 1 Off, 2 Turn on by navi, 3 Small screen navi, 4 Full screen navi. (The shell can also set it through `INSTRUMENT_NAVI_TYPE_SET`, `0x4C10A018`, with `service call autoservice 6 …`; DiPlay does not change the mode.)
+Ordinary apps cannot read the mode: BYD's `INSTRUMENT_NAVI_TYPE` needs a BYD signature. The adb shell reads it through the `autoservice` binder (instrument device 1007, feature `0x40C03032`): `service call autoservice 5 i32 1007 i32 1086337074` → `Parcel(00000000 0000000N)`, N = 1 Off, 2 Turn on by navi, 3 Small screen navi, 4 Full screen navi. (The shell can also set it through `INSTRUMENT_NAVI_TYPE_SET`, `0x4C10A018`, with `service call autoservice 6 …`. On the DiLink 4 ADB route DiPlay writes Small screen navi (3) before it opens its own projection, then follows the read above when the driver picks Full screen navi.)
 
 DiPlay runs the read through the head unit's own adbd on `127.0.0.1:5555` ("ADB over network" in developer options) with its own RSA key. The car asks once to allow that key; DiPlay offers it only after an explicit settings action, never during background validation or while driving. The TLS pairing flavour of wireless debugging is not supported.
 
@@ -270,8 +270,9 @@ attempts projection-off immediately. A failed restoration stays pending and retr
 using already approved local ADB; reopening DiPlay also recovers an interrupted
 output even when navigation output has since been disabled. A new mode waits for
 that recovery. Android cannot guarantee restoration before force-stop; recovery
-runs after the app opens again. This journal does not change the stock-map package
-hold or the verified windshield HUD receiver checks.
+runs after the app opens again. This journal is separate from the stock-map package
+disable (which keeps its own journal) and does not change the verified windshield HUD
+receiver checks.
 
 Before releasing DiLink 3 support, retest on the car: first display creation after
 boot, guidance-only mode, map priority over guidance, normal disconnect, temporary

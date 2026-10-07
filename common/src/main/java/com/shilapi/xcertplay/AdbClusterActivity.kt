@@ -103,6 +103,8 @@ class AdbClusterActivity : Activity() {
             finish(); return
         }
         routeStatus = getString(R.string.adb_cluster_routed)
+        // The projection is confirmed: disable the stock map so it cannot grab the surface back.
+        token?.let { com.shilapi.xcertplay.hud.BydOemClusterNavi.disableAfterProjection(this, it) }
         surface?.let { ClusterActivityOutput.attach(this, it) }
         updateStream()
     }

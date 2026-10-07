@@ -559,7 +559,6 @@
     <string name="adb_cluster_activity_mode">DiLink 4 儀表影片（ADB，實驗性）</string>
     <string name="adb_cluster_activity_description">透過內建ADB直接在已驗證儀表副屏啟動地圖。請先授權ADB，再重新連線iPhone。</string>
     <string name="adb_cluster_authorize">授權 ADB / 再試一次儀表移動</string>
-    <string name="adb_cluster_open">再試一次儀表地圖</string>
     <string name="adb_cluster_routing">正在透過ADB啟動儀表地圖…</string>
     <string name="adb_cluster_routed">儀表視窗已移動，等待 iPhone 地圖</string>
     <string name="adb_cluster_route_failed">儀表啟動失敗，請匯出診斷。</string>
@@ -625,11 +624,6 @@
     <string name="cluster_safe_area_reset">重設儀表安全區域</string>
     <string name="cluster_safe_area_hint">拖曳四條綠色邊界，儲存後在下次 CarPlay 連線時生效。自訂區域會替代車輛標記偏移，重設後恢復。</string>
     <string name="cluster_safe_area_live_hint">在此拖曳綠色邊界，儀表會同步顯示區域框。儲存後重新連線生效；取消保留當前區域。</string>
-    <string name="oem_cluster_map">隱藏原車儀表地圖</string>
-    <string name="oem_cluster_map_description">可選：DiPlay 投放期間暫停原車地圖的儀表投放。關閉時不修改原車地圖。組件模式只隱藏儀表投放，整套模式會停用整個原車地圖，停止投放後恢復原狀態。需要已授權的本機 ADB，重新連線後生效。</string>
-    <string name="oem_cluster_hold_off">關閉</string>
-    <string name="oem_cluster_hold_component">只隱藏儀表投放</string>
-    <string name="oem_cluster_hold_package">停用整個原車地圖</string>
     <string name="song_on_hud">HUD 顯示歌曲名稱或歌詞</string>
     <string name="song_on_hud_description">無導航指引時顯示手機提供的歌曲名稱或歌詞，導航方向和道路名稱優先。</string>
     <string name="hotspot_network_not_ready">熱點網路未就緒</string>

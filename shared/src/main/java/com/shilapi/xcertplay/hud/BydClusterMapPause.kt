@@ -68,17 +68,15 @@ internal object BydClusterMapPause {
         // re-announces it on every mode change too (see BydClusterScreenStatus).
         val mode = readMode(app)
         if (mode != lastMode) {
-            val previous = lastMode
             lastMode = mode
             Log.i(TAG, "cluster mode ${mode?.label ?: "unknown"}")
             BydClusterScreenStatus.onModeChanged(app, mode)
-            // Keep the projection command in sync with the instrument's navi mode: Full screen
-            // navi needs the full-screen projection (16), Small screen navi the half-screen one
-            // (17). Entering Full also reopens the projection so the instrument lays it out again.
-            BydDiLink3ClusterOutput.setInstrumentMode(app, mode)
-            if (previous != null && previous != BydClusterNaviMode.FULL && mode == BydClusterNaviMode.FULL) {
-                BydDiLink3ClusterOutput.refreshProjection(app)
-            }
+            // Keep the projection command in sync with the instrument's navi mode: Full screen navi
+            // opens the full-screen projection (16) directly, Small screen navi the half-screen one
+            // (17). Full must not go through the close-then-reopen path — the instrument would stay
+            // blank until something reopened it.
+            if (mode == BydClusterNaviMode.FULL) BydDiLink3ClusterOutput.enterFullScreen(app)
+            else BydDiLink3ClusterOutput.setInstrumentMode(app, mode)
             // The instrument re-lays out its projection window for the new mode and raises the stock
             // map above DiPlay's cluster task (measured with Full screen navi). The host puts its own
             // task back in front once the instrument has finished rearranging.

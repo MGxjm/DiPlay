@@ -10,8 +10,8 @@ import java.util.concurrent.Executors
  * the driver changes the cluster navi mode: Small opens the small projection window, Full opens the
  * full one, Off/Turn on by navi close it. The instrument native side gates the projection on it.
  *
- * When DiPlay holds the stock map disabled (`BydOemClusterHold`), nobody writes it anymore: the
- * window for the mode the stock map last announced stays latched (so that mode keeps working),
+ * When DiPlay disables the stock map once its projection is confirmed, nobody writes it anymore:
+ * the window for the mode the stock map last announced stays latched (so that mode keeps working),
  * while every other mode shows nothing — switching to Full on the wheel leaves the dashboard
  * blank until something re-announces the state. DiPlay writes it itself, from the same navi-mode
  * ticker that already reads the wheel mode.

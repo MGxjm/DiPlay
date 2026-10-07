@@ -6,15 +6,15 @@ import android.util.Log
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-/** Opt-in stock-map hold for the validated private-display route. All state belongs to worker. */
+/** Stock-map handoff for the validated DiLink 4 private-display route. All state belongs to worker. */
 object BydOemClusterNavi {
     internal const val STOCK_MAP = "com.byd.automap"
     internal const val STOCK_MAP_CLUSTER_ACTIVITY = "$STOCK_MAP.extra.MeterActivity"
     private const val TAG = "DiPlay-BYD-OemCluster"
     private const val JOURNAL = "restore_journal"
 
-    /** A hold that never returns (adb shell stuck) must not block the projection launch forever. */
-    private const val HOLD_TIMEOUT_SECONDS = 8L
+    /** A command that never returns (adb shell stuck) must not block the projection launch forever. */
+    private const val COMMAND_TIMEOUT_SECONDS = 8L
     private val shell = BydAdbShell(TAG)
     private val worker = Executors.newSingleThreadScheduledExecutor {
         Thread(it, "diplay-oem-cluster").apply { isDaemon = true }
@@ -25,9 +25,8 @@ object BydOemClusterNavi {
         runCatching { context.packageManager.getPackageInfo(STOCK_MAP, 0) }.isSuccess
 
     /**
-     * Re-enable the stock map (component and package) and clear any recovery journal. Used when
-     * the driver switches the Gaode setting to OFF, so a previous long-term disable is undone.
-     * Blocking, for the ADB routing worker only; never call from the Android main thread.
+     * Re-enable the stock map (component and package) and clear any recovery journal. Blocking, for
+     * the ADB routing worker only; never call from the Android main thread.
      */
     fun restoreStockMap(context: Context) {
         val app = context.applicationContext
@@ -37,19 +36,40 @@ object BydOemClusterNavi {
         }
     }
 
-    /** Blocking, for the ADB routing worker only; never call from the Android main thread. */
-    fun holdForLaunch(context: Context, lease: String, current: () -> Boolean): Boolean {
+    /**
+     * Blocking, for the ADB routing worker only; never call from the Android main thread. Prepares
+     * the DiLink 4 projection: re-enables the whole stock map so its cluster activity rebuilds the
+     * instrument's projection window, forces Small screen navi, and opens the half-screen projection
+     * (17). Only then does DiPlay launch its own projection; the stock map is disabled again once
+     * that projection is confirmed (see [disableAfterProjection]).
+     */
+    fun primeForLaunch(context: Context, current: () -> Boolean): Boolean {
         val app = context.applicationContext
         return runCatching {
             worker.submit<Boolean> {
-                val mode = BydOutputSettings.oemClusterHold(app)
-                (mode == BydOemClusterHold.OFF || applicable(app)) &&
-                    state(app).acquire(mode, lease, current)
-            }.get(HOLD_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        }.onFailure { Log.w(TAG, "Stock-map hold refused", it) }.getOrDefault(false)
+                if (!applicable(app) || !current()) return@submit false
+                if (!state(app).restoreStockMap()) return@submit false
+                if (!current()) return@submit false
+                shell.run(app, BydClusterNaviMode.selectSmallCommand())
+                BydDiLink3ClusterMode.accepted(shell.run(app, BydDiLink3ClusterMode.Mode.PROJECTION.command))
+            }.get(COMMAND_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        }.onFailure { Log.w(TAG, "Stock-map priming refused", it) }.getOrDefault(false)
     }
 
-    /** Always enqueue, even when acquire has not saved its journal yet. */
+    /**
+     * DiPlay's projection is confirmed on the cluster: disable the whole stock map package so it can
+     * no longer grab the projection surface back. Journaled, so [release] restores the original state
+     * when the session ends, or at the next app launch after a crash.
+     */
+    fun disableAfterProjection(context: Context, lease: String) {
+        val app = context.applicationContext
+        worker.execute {
+            runCatching { state(app).disablePackage(lease) { true } }
+                .onFailure { Log.w(TAG, "Stock-map disable failed", it) }
+        }
+    }
+
+    /** Always enqueue, even when the disable has not saved its journal yet. */
     fun release(context: Context, lease: String? = null) {
         val app = context.applicationContext
         worker.execute {

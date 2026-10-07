@@ -468,7 +468,6 @@
     <string name="cluster_display_auto">Automatic</string>
     <string name="cluster_display_option">%1$s · %2$d×%3$d</string>
     <string name="cluster_display_option_classed">%1$s · %2$d×%3$d · %4$s</string>
-    <string name="cluster_display_rescan">Read displays from the head unit</string>
     <string name="cluster_display_scanning">Reading the display list over ADB…</string>
     <string name="cluster_display_rescan_failed">Could not read the display list over ADB</string>
     <string name="cluster_display_setup_step1">First-time setup · step 1: authorise ADB so DiPlay can read the head unit’s display list.</string>
@@ -594,7 +593,6 @@
     <string name="adb_cluster_activity_mode">DiLink 4 cluster video via ADB (experimental)</string>
     <string name="adb_cluster_activity_description">Launch the map directly on the verified cluster display through internal ADB. Authorize ADB, then reconnect the iPhone.</string>
     <string name="adb_cluster_authorize">Authorize ADB / retry cluster routing</string>
-    <string name="adb_cluster_open">Retry cluster map</string>
     <string name="adb_cluster_routing">Launching cluster map through ADB…</string>
     <string name="adb_cluster_routed">Cluster task routed; waiting for iPhone map</string>
     <string name="adb_cluster_route_failed">Cluster launch failed; export diagnostics.</string>
@@ -662,13 +660,6 @@
     <string name="cluster_safe_area_reset">Reset cluster safe area</string>
     <string name="cluster_safe_area_hint">Drag the four green boundaries. Saving applies to the next CarPlay connection. A custom box replaces marker offsets; reset restores them.</string>
     <string name="cluster_safe_area_live_hint">Drag the green edges here and watch the outline on the cluster. Save applies the layout after reconnecting; Cancel keeps your current box.</string>
-    <string name="oem_cluster_map">Original-car Gaode (AutoMap)</string>
-    <string name="oem_cluster_map_description">Pick how DiPlay treats the car’s own Gaode cluster map while it projects there. Not disabled leaves the stock map running. DiPlay-running disable pauses only its cluster projection and restores it when projection stops. Long-term disable turns the whole stock map off and keeps it off after DiPlay stops — pick Not disabled to re-enable. Requires authorized local ADB; applies after reconnecting.</string>
-    <string name="oem_cluster_hold_off">Not disabled</string>
-    <string name="oem_cluster_hold_component">Disabled while DiPlay is running</string>
-    <string name="oem_cluster_hold_package">Long-term disabled</string>
-    <string name="oem_cluster_map_recommendation">Recommended: Long-term disabled, so the original-car Gaode cannot grab the instrument projection surface back from DiPlay.</string>
-    <string name="oem_cluster_map_restart_notice">After enabling DiLink 4 projection, set the desired mode (Full or Small screen) in the car’s instrument cluster menu, finish the other settings, then turn the car off and on again. Each switch of this setting requires restarting the car.</string>
     <string name="song_on_hud">Song or lyrics on the HUD</string>
     <string name="song_on_hud_description">Show the title or lyrics supplied by the phone while no navigation guidance is active. Navigation directions and road names take priority.</string>
     <string name="hotspot_network_not_ready">Hotspot network is not ready</string>

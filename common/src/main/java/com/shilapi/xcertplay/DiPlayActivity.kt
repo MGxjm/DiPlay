@@ -675,50 +675,36 @@ class DiPlayActivity : ComponentActivity() {
         // Cluster video does not require a BYD navigation broadcast receiver.
         section(content, getString(R.string.carplay_map_on_instrument_cluster_experimental), R.drawable.ic_dp_dashboard) { card ->
             toggle(card, getString(R.string.adb_cluster_activity_mode),
-                getString(R.string.adb_cluster_activity_description), AirPlayPersistence.loadAdbClusterEnabled(this)) {
-                AirPlayPersistence.saveAdbClusterEnabled(this, it)
+                getString(R.string.adb_cluster_activity_description), AirPlayPersistence.loadAdbClusterEnabled(this)) { enabled ->
+                AirPlayPersistence.saveAdbClusterEnabled(this, enabled)
                 ClusterActivityOutput.stopForSettings()
                 render()
                 reconnectForClusterMap()
+                // Turning the DiLink 4 cluster video on is the one action that needs the head unit's
+                // ADB access, so ask for it here instead of through separate authorize/retry buttons.
+                if (enabled) authorizeClusterRouting()
             }
             val adbCluster = AdbClusterRouter.enabled(this)
             if (adbCluster) {
-                card.addView(button(getString(R.string.adb_cluster_authorize), false) { authorizeClusterRouting() }, matchButton(10, 56))
-                card.addView(button(getString(R.string.adb_cluster_open), false) { ClusterActivityOutput.retry() }, matchButton(10, 56))
-                // Instrument-projection display picker lives directly under the DiLink 4 switch,
-                // so the driver can pick a target before turning on the cluster map.
+                // The switch already implies the cluster map, so it exposes exactly one child: the
+                // instrument-projection display picker. The generic cluster-map switch below would
+                // only duplicate it.
                 clusterDisplayPicker(card)
-            }
-            if (adbCluster && com.shilapi.xcertplay.hud.BydOemClusterNavi.applicable(this)) {
-                val holds = com.shilapi.xcertplay.hud.BydOemClusterHold.entries
-                card.addView(label(getString(R.string.oem_cluster_map_description), 14, MUTED))
-                choice(card, getString(R.string.oem_cluster_map), holds.map { it.localizedLabel(this) },
-                    holds.indexOf(BydOutputSettings.oemClusterHold(this))) { index ->
-                    val previous = BydOutputSettings.oemClusterHold(this)
-                    BydOutputSettings.setOemClusterHold(this, holds[index])
-                    // Switching to OFF re-enables a previous long-term PACKAGE disable.
-                    if (holds[index] == com.shilapi.xcertplay.hud.BydOemClusterHold.OFF &&
-                        previous == com.shilapi.xcertplay.hud.BydOemClusterHold.PACKAGE) {
-                        com.shilapi.xcertplay.hud.BydOemClusterNavi.restoreStockMap(this)
-                    }
-                    ClusterActivityOutput.stopForSettings()
-                    reconnectForClusterMap()
-                }
-                card.addView(label(getString(R.string.oem_cluster_map_recommendation), 14, MUTED))
-                card.addView(label(getString(R.string.oem_cluster_map_restart_notice), 14, MUTED))
             }
             val clusterDisplay = ClusterMapPresentation.findDisplay(this)
             val diLink4 = adbCluster || (clusterDisplay != null &&
                 !DiLink51ClusterLayout.isDiLink5ProjectionName(clusterDisplay.name) &&
                 DiLink4ClusterDisplay.matches(clusterDisplay.name))
             val clusterMapEnabled = AirPlayPersistence.loadClusterMapEnabled(this)
-            toggle(card, getString(R.string.carplay_map_on_instrument_cluster_experimental),
-                if (clusterDisplay != null || adbCluster) getString(R.string.shows_the_iphone_s_cluster_map_on_the_instrument_cluster_c)
-                else getString(R.string.shows_the_iphone_s_cluster_map_virtual_stream_description),
-                clusterMapEnabled) {
-                AirPlayPersistence.saveClusterMapEnabled(this, it)
-                render()
-                reconnectForClusterMap()
+            if (!adbCluster) {
+                toggle(card, getString(R.string.carplay_map_on_instrument_cluster_experimental),
+                    if (clusterDisplay != null) getString(R.string.shows_the_iphone_s_cluster_map_on_the_instrument_cluster_c)
+                    else getString(R.string.shows_the_iphone_s_cluster_map_virtual_stream_description),
+                    clusterMapEnabled) {
+                    AirPlayPersistence.saveClusterMapEnabled(this, it)
+                    render()
+                    reconnectForClusterMap()
+                }
             }
             if (clusterMapEnabled) {
                 toggle(card, getString(R.string.center_map_card),
@@ -1619,15 +1605,14 @@ class DiPlayActivity : ComponentActivity() {
             getString(R.string.cluster_display_option, override.name, override.width, override.height)
         else getString(R.string.cluster_display_auto)
 
-        val button = button("${getString(R.string.cluster_display)} · $buttonText", false) { pickClusterDisplay() }
-        // Same top gap and height as every sibling button in this card.
-        card.addView(button, matchButton(10, 56))
-        card.addView(button(getString(R.string.cluster_display_rescan), false) { pickClusterDisplay() }, matchButton(10, 56))
+        // Tapping scans the head unit's display list over ADB and opens the picker in one step, so
+        // the separate "read the display list from the car" button is gone.
+        card.addView(button("${getString(R.string.cluster_display)} · $buttonText", false) { pickClusterDisplay() }, matchButton(10, 56))
     }
 
     /**
-     * Triggered by tapping the cluster-display picker or the rescan button: scans the head unit's
-     * display list over ADB with a loading hint, then shows the selection dialog. An empty result
+     * Triggered by tapping the cluster-display picker: scans the head unit's display list over ADB
+     * with a loading hint, then shows the selection dialog. An empty result
      * means no projection surface is active — the driver must trigger the stock instrument display
      * first. A null result means ADB is not authorized or unreachable.
      */

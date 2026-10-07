@@ -100,13 +100,13 @@ class DiLink3ClusterRecoveryTest {
         assertFalse(prefs.contains("restore_stock_mode"))
     }
 
-    @Test fun wheelFullSelectionReopensTheProjection() {
+    @Test fun fullScreenEntryOpensTheFullProjectionDirectly() {
         output.setDesired(app, mapShown = true, guidanceActive = false)
         drain()
         Shell.commands.clear()
-        output.refreshProjection(app)
+        output.enterFullScreen(app)
         drain()
-        assertEquals(listOf(stock, BydDiLink3ClusterMode.Mode.PROJECTION.command), Shell.commands.toList())
+        assertEquals(listOf(BydDiLink3ClusterMode.Mode.FULL_PROJECTION.command), Shell.commands.toList())
     }
 
     @Implements(BydAdbShell::class, isInAndroidSdk = false)
