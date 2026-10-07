@@ -461,8 +461,6 @@
     <string name="center_map_follows_dashboard_description">开启：主屏幕卡片镜像仪表盘地图。关闭：主屏幕不显示该卡片，仪表盘地图只出现在仪表盘上。不会改变 CarPlay 主屏自己的画面。</string>
     <string name="dashboard_map_only_in_small_and_full_navi">仅在小屏或全屏导航时显示仪表盘地图</string>
     <string name="dashboard_map_only_in_small_and_full_navi_description">DiPlay 读取你在方向盘菜单中选择的导航模式。在“关闭”和“导航时开启”模式下仪表盘只显示箭头，因此 iPhone 不发送地图；在小屏导航和全屏导航模式下会发送，切换后一两秒内生效。需要在车机上开启网络 ADB。</string>
-    <string name="cluster_screen_status">导航模式切换时广播投屏状态</string>
-    <string name="cluster_screen_status_description">仪表只有在原车地图 App 广播你在方向盘选择的导航模式后，才会打开对应的地图投影窗。禁用原车地图期间由 DiPlay 代写这条广播，小屏和全屏导航就都能正常投影。需要在车机上开启网络 ADB。</string>
     <string name="cluster_display">仪表投影屏幕</string>
     <string name="cluster_display_auto">自动</string>
     <string name="cluster_display_option">%1$s · %2$d×%3$d</string>

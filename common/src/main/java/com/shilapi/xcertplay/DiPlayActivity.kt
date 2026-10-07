@@ -174,6 +174,7 @@ class DiPlayActivity : ComponentActivity() {
     }
 
     private var languagePreferenceAtCreate = AppLocale.SYSTEM
+    private var keepPageOnRecreate = false
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLocale.wrap(newBase))
@@ -196,8 +197,12 @@ class DiPlayActivity : ComponentActivity() {
         }
         pendingCarHotspotSetup = savedInstanceState?.getBoolean("pending_car_hotspot") ?: false
         bydVehicleAdvancedExpanded = savedInstanceState?.getBoolean("byd_vehicle_advanced") ?: false
-        page = savedInstanceState?.getString("page") ?: intent.getStringExtra("page") ?: "home"
+        // A launcher, recents or boot entry names no page, unlike the projection's settings shortcut.
+        val requestedPage = intent.getStringExtra("page")
+        val keptPage = savedInstanceState?.getString("page")
+        page = keptPage ?: requestedPage ?: "home"
         render()
+        if (requestedPage == null && keptPage == null) openProjectionIfConnected()
         scheduleAutomaticVehicleValidation()
         handleWirelessRecovery()
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -210,13 +215,19 @@ class DiPlayActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent); setIntent(intent)
-        page = intent.getStringExtra("page") ?: "home"; render()
+        val requestedPage = intent.getStringExtra("page")
+        page = requestedPage ?: "home"; render()
+        if (requestedPage == null) openProjectionIfConnected()
         automaticVehicleValidationStarted = false
         scheduleAutomaticVehicleValidation()
         handleWirelessRecovery()
     }
     override fun onSaveInstanceState(outState: Bundle) {
-        outState.putString("page", page)
+        // The page is deliberately not part of the saved state: every entry without an explicit page
+        // starts on the connect page (or the projection), so restoring a task after the process was
+        // killed must not drop the driver back into the DiPlay page a previous entry left open. Only
+        // the in-place language recreate keeps the page the driver is on.
+        if (keepPageOnRecreate) outState.putString("page", page)
         outState.putBoolean("pending_car_hotspot", pendingCarHotspotSetup)
         outState.putBoolean("byd_vehicle_advanced", bydVehicleAdvancedExpanded)
         super.onSaveInstanceState(outState)
@@ -245,6 +256,7 @@ class DiPlayActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (Build.VERSION.SDK_INT < 33 && AppLocale.preference(this) != languagePreferenceAtCreate) {
+            keepPageOnRecreate = true
             recreate()
             return
         }
@@ -865,13 +877,6 @@ class DiPlayActivity : ComponentActivity() {
                                 getString(R.string.dashboard_map_only_in_small_and_full_navi_description),
                                 BydOutputSettings.clusterStreamPause(this)) {
                                 BydOutputSettings.setClusterStreamPause(this, it)
-                                if (it) checkAdbState(mayAsk = true)
-                            }
-                        } else {
-                            toggle(card, getString(R.string.cluster_screen_status),
-                                getString(R.string.cluster_screen_status_description),
-                                BydOutputSettings.clusterScreenStatus(this)) {
-                                BydOutputSettings.setClusterScreenStatus(this, it)
                                 if (it) checkAdbState(mayAsk = true)
                             }
                         }
@@ -2944,6 +2949,16 @@ class DiPlayActivity : ComponentActivity() {
     }
     private fun openProjection() {
         startActivity(Intent(this, CarPlayHostActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+    }
+
+    /**
+     * The launcher, recents and boot entries name no page, unlike the projection's settings shortcut.
+     * The driver tapped the icon for CarPlay, so a live session goes straight back to the projection
+     * instead of the DiPlay page a previous entry left open.
+     */
+    private fun openProjectionIfConnected() {
+        if (setupError != null || !CarPlayBackgroundSession.hasSession()) return
+        openProjection()
     }
     private fun choosePhone() {
         if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {

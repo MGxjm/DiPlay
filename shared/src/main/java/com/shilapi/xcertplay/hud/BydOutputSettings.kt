@@ -11,7 +11,6 @@ object BydOutputSettings {
     private const val PREFS = "diplay_byd_outputs"
     private const val KEY_ENABLED = "navigation_enabled"
     private const val KEY_CLUSTER_STREAM_PAUSE = "cluster_stream_pause"
-    private const val KEY_CLUSTER_SCREEN_STATUS = "cluster_screen_status"
     private const val KEY_BATTERY_TO_IPHONE = "battery_to_iphone"
     private const val KEY_LOW_CHARGE_PERCENT = "low_charge_percent"
     private const val KEY_CHARGING_CONNECTORS = "charging_connectors"
@@ -35,17 +34,6 @@ object BydOutputSettings {
 
     fun setClusterStreamPause(context: Context, enabled: Boolean) =
         prefs(context).edit().putBoolean(KEY_CLUSTER_STREAM_PAUSE, enabled).apply()
-
-    /**
-     * Re-announce the instrument's projection window (INSTRUMENT_SEND_NAVI_STATUS_SET) whenever the
-     * driver switches the cluster navi mode, like the stock map app does (needs ADB over network).
-     * With the stock map held disabled, nobody else writes it: the mode it last announced stays
-     * latched and every other mode shows a blank dashboard until it is written again.
-     */
-    fun clusterScreenStatus(context: Context): Boolean = prefs(context).getBoolean(KEY_CLUSTER_SCREEN_STATUS, true)
-
-    fun setClusterScreenStatus(context: Context, enabled: Boolean) =
-        prefs(context).edit().putBoolean(KEY_CLUSTER_SCREEN_STATUS, enabled).apply()
 
     /** Tell the iPhone the car's charge and range (needs ADB over network); applies on the next connection. */
     fun batteryToIphone(context: Context): Boolean = prefs(context).getBoolean(KEY_BATTERY_TO_IPHONE, false)

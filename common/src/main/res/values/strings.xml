@@ -462,8 +462,6 @@
     <string name="center_map_follows_dashboard_description">On: the home-screen card mirrors the dashboard map. Off: hide the home-screen card so only the instrument cluster shows that map. This does not change CarPlay’s own main screen.</string>
     <string name="dashboard_map_only_in_small_and_full_navi">Dashboard map only in Small and Full navi</string>
     <string name="dashboard_map_only_in_small_and_full_navi_description">DiPlay reads the navi mode you pick on the steering wheel. In Off and Turn on by navi the dashboard shows arrows only, so the iPhone does not send the map; in Small and Full screen navi it does, within a second or two of the switch. Needs ADB over network on the head unit.</string>
-    <string name="cluster_screen_status">Announce the projection on navi mode changes</string>
-    <string name="cluster_screen_status_description">The instrument opens its map projection window only when the stock map app announces the navi mode you picked on the steering wheel. While the stock map is held disabled, DiPlay writes that announcement itself, so Small and Full screen navi both show the projection. Needs ADB over network on the head unit.</string>
     <string name="cluster_display">Instrument projection display</string>
     <string name="cluster_display_auto">Automatic</string>
     <string name="cluster_display_option">%1$s · %2$d×%3$d</string>

@@ -64,7 +64,6 @@ internal object BydClusterScreenStatus {
 
     /** The driver picked a new cluster navi mode; re-announce the projection state for it. */
     fun onModeChanged(app: Context, mode: BydClusterNaviMode?) {
-        if (!BydOutputSettings.clusterScreenStatus(app)) return
         val status = NaviScreenStatus.fromMode(mode) ?: return
         if (status.code == lastWritten) return
         writer.execute { write(app, status) }
