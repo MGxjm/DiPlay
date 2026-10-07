@@ -61,7 +61,7 @@ internal object BydClusterBridge {
     }
 
     fun onFrame(frame: Iap2Frame) = synchronized(lock) {
-        if (!available) return@synchronized
+        if (!available || diLink5Route()) return@synchronized
         when (route.accept(frame.messageId, frame.payload)) {
             BydHudRouteChange.GUIDANCE -> sendCurrentLocked(force = false)
             BydHudRouteChange.CLEAR -> if (lastSent != null) sendEndLocked()
@@ -75,6 +75,7 @@ internal object BydClusterBridge {
     }
 
     private fun tick() = synchronized(lock) {
+        if (diLink5Route()) return@synchronized
         applyClusterModeLocked() // Retries a mode switch that waited for ADB approval.
         // Guidance can expire without a frame (a list that stays empty), so check every second.
         if (lastSent != null && route.currentApple() == null) sendEndLocked()
@@ -162,6 +163,7 @@ internal object BydClusterBridge {
      */
     private fun applyClusterModeLocked() {
         val appContext = context ?: return
+        if (diLink5Route()) return
         BydDiLink3ClusterOutput.setDesired(appContext, mapShown, guidanceActive)
     }
 
@@ -186,6 +188,19 @@ internal object BydClusterBridge {
             ?.displays?.any { it.name == DILINK3_DISPLAY } == true
 
     private const val DILINK3_DISPLAY = "fission_bg_xdjaVirtualSurface"
+    private const val DILINK5_DISPLAY = "fission_bg_XDJAScreenProjection"
+
+    /**
+     * DiLink 5 exposes its own XDJA screen projection and draws the cluster natively, so the stock
+     * map's cluster commands and guidance broadcasts must stay off there: they would compete with
+     * the native route. The surface only appears once the cluster projects, so this is re-read on
+     * every tick rather than fixed at start-up.
+     */
+    private fun diLink5Route(): Boolean {
+        val app = context ?: return false
+        return app.getSystemService(android.hardware.display.DisplayManager::class.java)
+            ?.displays?.any { it.name.contains(DILINK5_DISPLAY) } == true
+    }
 
     private fun installed(appContext: Context, packageName: String): Boolean = try {
         appContext.packageManager.getPackageInfo(packageName, 0)

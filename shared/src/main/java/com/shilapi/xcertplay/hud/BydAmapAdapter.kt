@@ -44,8 +44,9 @@ internal object BydDiLink3ClusterMode {
      * - Full screen navi (4) always needs the full-screen projection (16): it is the only command
      *   that opens the full window, so falling through to the stock view (18) would blank the
      *   dashboard until the driver changed the wheel mode again.
-     * - Small screen navi (3) keeps the window the instrument already latched: the half-screen
-     *   projection (17) only while DiPlay's map window is on the cluster, and never the turn card.
+     * - Small screen navi (3) asks for the half-screen projection (17) as well, never the turn card:
+     *   the DiLink 4 ADB route never reports DiPlay's map window, so waiting for that flag left the
+     *   wheel switch from Full to Small sending the stock view (18) and blanking the dashboard.
      * - Off (1) closes the projection; a null mode (nothing to restore) leaves the stock view alone.
      */
     fun desired(mapShown: Boolean, guidanceActive: Boolean, requested: Mode?,
@@ -53,6 +54,7 @@ internal object BydDiLink3ClusterMode {
     ): Mode? = when {
         instrumentMode == BydClusterNaviMode.TURN_ON_BY_NAVI -> Mode.SIMPLE_NAVIGATION
         instrumentMode == BydClusterNaviMode.FULL -> Mode.FULL_PROJECTION
+        instrumentMode == BydClusterNaviMode.SMALL -> Mode.PROJECTION
         mapShown -> Mode.PROJECTION
         instrumentMode != null -> null
         guidanceActive -> Mode.SIMPLE_NAVIGATION

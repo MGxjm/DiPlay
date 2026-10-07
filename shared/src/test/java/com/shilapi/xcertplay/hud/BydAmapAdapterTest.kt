@@ -44,6 +44,10 @@ class BydAmapAdapterTest {
         assertEquals(BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION, mode.desired(false, true, null, null))
         // Map shown in Small screen navi (or an unknown mode) uses half-screen projection.
         assertEquals(BydDiLink3ClusterMode.Mode.PROJECTION, mode.desired(true, true, BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION, BydClusterNaviMode.SMALL))
+        // Small screen navi asks for the half-screen projection even before the map window is
+        // reported: the DiLink 4 ADB route never reports it, and waiting for it blanked the
+        // dashboard when the driver switched from Full to Small.
+        assertEquals(BydDiLink3ClusterMode.Mode.PROJECTION, mode.desired(false, false, null, BydClusterNaviMode.SMALL))
         // Map shown in Full screen navi uses the full-screen projection instead.
         assertEquals(BydDiLink3ClusterMode.Mode.FULL_PROJECTION, mode.desired(true, true, BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION, BydClusterNaviMode.FULL))
         // Full screen navi uses it before the map window is reported too: 16 is the only command that
