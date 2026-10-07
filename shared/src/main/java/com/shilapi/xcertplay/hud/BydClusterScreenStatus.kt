@@ -1,9 +1,7 @@
 package com.shilapi.xcertplay.hud
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
-import java.lang.reflect.InvocationTargetException
 import java.util.concurrent.Executors
 
 /**
@@ -40,13 +38,18 @@ internal enum class NaviScreenStatus(val code: Int) {
 }
 
 /**
- * Writes `INSTRUMENT_SEND_NAVI_STATUS_SET` like the stock map app does (needs ADB over network:
- * apps without a BYD signature cannot reach the instrument, the adb shell user can — the same
- * `app_process` route as [BydClusterSong]). Writes happen on mode changes only, de-duplicated, on a
+ * Writes `INSTRUMENT_SEND_NAVI_STATUS_SET` like the stock map app does. The write goes through the
+ * `autoservice` binder as the adb shell user (`service call autoservice 6`, setInt on instrument
+ * device 1007): `BYDAutoInstrumentDevice.set` is gated on the signature-level
+ * `android.permission.BYDAUTO_INSTRUMENT_SET`, which user 2000 does not hold, while autoservice
+ * accepts the caller. The feature id is not in DiPlay's dex — [BydClusterScreenStatusTool] resolves
+ * it on the head unit once per session. Writes happen on mode changes only, de-duplicated, on a
  * background thread; the instrument keeps the state latched, so there is nothing to refresh.
  */
 internal object BydClusterScreenStatus {
     private const val TAG = "DiPlay-BYD-ScreenStatus"
+    private const val INSTRUMENT_DEVICE = 1007
+    private const val SET_INT = 6
 
     private val shell = BydAdbShell(TAG)
     private val writer = Executors.newSingleThreadExecutor {
@@ -55,6 +58,9 @@ internal object BydClusterScreenStatus {
 
     // Writer thread + ticker read; only used to skip duplicate writes of the same state.
     @Volatile private var lastWritten: Int? = null
+
+    /** Resolved once on the head unit; the constant only exists in the platform jars. */
+    @Volatile private var resolvedFeatureId: Int? = null
 
     /** The driver picked a new cluster navi mode; re-announce the projection state for it. */
     fun onModeChanged(app: Context, mode: BydClusterNaviMode?) {
@@ -70,69 +76,68 @@ internal object BydClusterScreenStatus {
     }
 
     private fun write(app: Context, status: NaviScreenStatus) {
-        val apk = app.applicationInfo.sourceDir
-        val output = shell.run(app, "CLASSPATH=$apk app_process /system/bin ${BydClusterScreenStatusTool::class.java.name} ${status.code}")
-            ?: return
-        val failed = output.lineSequence().map { it.trim() }.filter { it.contains('=') }
-            .any { line -> line.substringAfter('=').trim().toIntOrNull() != 0 }
-        if (failed) {
-            Log.w(TAG, "screen status write failed: ${output.trim().take(160)}")
-        } else {
-            lastWritten = status.code
-            Log.i(TAG, "instrument screen status -> ${status.name}")
+        val featureId = featureId(app) ?: return
+        val output = shell.run(
+            app,
+            "service call autoservice $SET_INT i32 $INSTRUMENT_DEVICE i32 $featureId i32 ${status.code}",
+        ) ?: return
+        // A refused transaction answers with an exception, or with no Parcel at all. The accepted
+        // reply is the raw status Parcel, which the bring-up log keeps verbatim.
+        val accepted = BydParcel.words(output).isNotEmpty() &&
+            !Regex("(?i)exception|denied|error").containsMatchIn(output)
+        if (!accepted) {
+            Log.w(TAG, "screen status write refused: ${output.trim().take(160)}")
+            return
         }
+        lastWritten = status.code
+        Log.i(TAG, "instrument screen status -> ${status.name} (${output.trim().take(80)})")
+    }
+
+    /** `INSTRUMENT_SEND_NAVI_STATUS_SET`, resolved on the head unit through [BydClusterScreenStatusTool]. */
+    private fun featureId(app: Context): Int? {
+        resolvedFeatureId?.let { return it }
+        val apk = app.applicationInfo.sourceDir
+        val output = shell.run(app, "CLASSPATH=$apk app_process /system/bin ${BydClusterScreenStatusTool::class.java.name}")
+            ?: return null
+        val prefix = BydClusterScreenStatusTool.FEATURE_ID_PREFIX
+        val id = output.lineSequence().map { it.trim() }
+            .firstNotNullOfOrNull { line ->
+                line.removePrefix(prefix).toIntOrNull().takeIf { line.startsWith(prefix) }
+            }
+        if (id == null) {
+            Log.w(TAG, "navi status feature id unresolved: ${output.trim().take(160)}")
+            return null
+        }
+        Log.i(TAG, "navi status feature id $id")
+        resolvedFeatureId = id
+        return id
     }
 }
 
 /**
- * Runs under the head unit's adb shell through app_process, not in DiPlay: writes
- * `INSTRUMENT_SEND_NAVI_STATUS_SET` (device 1007) with `BYDAutoInstrumentDevice.set`, the same
- * transaction the stock map's `BydAutoSettingProxy.setEventValue` issues. The feature id is
- * resolved by name at runtime — `BYDAutoFeatureIds` is a compile-time stub in app dex, its values
- * only exist in the platform jars on the head unit. Argument: the status code. Prints "status=N";
- * 0 is success.
+ * Resolves `INSTRUMENT_SEND_NAVI_STATUS_SET` (device 1007) on the head unit and prints
+ * `naviStatusId=<n>`; [BydClusterScreenStatus] then writes it through `service call autoservice 6`.
+ *
+ * Runs under the head unit's adb shell through app_process, not in DiPlay: `BYDAutoFeatureIds` is a
+ * compile-time stub in DiPlay's dex, its values only exist in the platform jars, and the app_process
+ * class loader reaches them. Reading the constant is all the tool does — the write cannot go through
+ * `BYDAutoInstrumentDevice.set` here, because that is gated on the signature-level
+ * `android.permission.BYDAUTO_INSTRUMENT_SET`, which user 2000 does not hold (verified on DiLink 4.0:
+ * "Neither user 2000 nor current process has android.permission.BYDAUTO_INSTRUMENT_SET"), while
+ * autoservice accepts the caller.
  */
 object BydClusterScreenStatusTool {
-    private const val DEVICE = 1007
+    const val FEATURE_ID_PREFIX = "naviStatusId="
 
     @JvmStatic
     fun main(args: Array<String>) {
         try {
-            write(args)
+            println("$FEATURE_ID_PREFIX${featureId()}")
         } catch (error: Throwable) {
-            println("status=ERR ${describe(error)}")
+            println("${FEATURE_ID_PREFIX}ERR ${describe(error)}")
         } finally {
-            // ActivityThread leaves threads behind; without this the shell command would not return.
             System.exit(0)
         }
-    }
-
-    @SuppressLint("PrivateApi")
-    private fun write(args: Array<String>) {
-        val status = args.getOrNull(0)?.toIntOrNull()
-        if (status == null) {
-            println("status=ERR no status argument")
-            return
-        }
-        runCatching { android.os.Looper.prepareMainLooper() }
-        val thread = Class.forName("android.app.ActivityThread")
-        val main = thread.getMethod("systemMain").invoke(null)
-        val context = thread.getMethod("getSystemContext").invoke(main)
-        val deviceClass = Class.forName("android.hardware.bydauto.instrument.BYDAutoInstrumentDevice")
-        // getInstance checks BYDAUTO_INSTRUMENT_COMMON on the caller's side only; autoservice itself
-        // accepts the shell user, so build the device the way getInstance does.
-        val device = try {
-            deviceClass.getMethod("getInstance", Context::class.java).invoke(null, context)
-        } catch (_: InvocationTargetException) {
-            deviceClass.getDeclaredConstructor(Context::class.java).apply { isAccessible = true }.newInstance(context)
-        }
-        val valueClass = Class.forName("android.hardware.bydauto.BYDAutoEventValue")
-        val value = valueClass.getConstructor().newInstance()
-        runCatching { valueClass.getField("intValue").setInt(value, status) }
-            .onFailure { valueClass.getField("intArrayValue").set(value, intArrayOf(status)) }
-        val result = device.javaClass.getMethod("set", IntArray::class.java, valueClass)
-            .invoke(device, intArrayOf(featureId()), value)
-        println("status=$result")
     }
 
     /** `BYDAutoFeatureIds$Instrument.INSTRUMENT_SEND_NAVI_STATUS_SET`, falling back to the outer class. */
