@@ -99,12 +99,32 @@ internal object AdbClusterRouter {
         return candidates.singleOrNull()
     }
 
+    /**
+     * FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK: a fresh cluster task every launch, so a
+     * stale task left on another display is never reused for a new route.
+     */
+    private const val LAUNCH_FLAGS = "0x18000000"
+
+    /**
+     * FLAG_ACTIVITY_NEW_TASK only. Android finds the running cluster task and reorders it, keeping
+     * its decoder and surface; MULTIPLE_TASK would create a second activity, re-attach the CarPlay
+     * stream and visibly refresh the cluster on every front pass.
+     */
+    private const val FRONT_FLAGS = "0x10000000"
+
     // Direct shell launch, following Hanxu4131's legacy platform-21 adapter.
-    internal fun launchCommand(pkg: String, display: Int, token: String): String {
+    internal fun launchCommand(pkg: String, display: Int, token: String): String =
+        amStart(pkg, display, token, LAUNCH_FLAGS)
+
+    /** Re-orders an existing cluster task to the front without recreating its activity. */
+    internal fun frontCommand(pkg: String, display: Int, token: String): String =
+        amStart(pkg, display, token, FRONT_FLAGS)
+
+    private fun amStart(pkg: String, display: Int, token: String, flags: String): String {
         require(display > 0)
         require(Regex("[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+").matches(pkg))
         require(runCatching { java.util.UUID.fromString(token).toString() == token }.getOrDefault(false))
-        return "am start-activity --display $display -f 0x18000000 " +
+        return "am start-activity --display $display -f $flags " +
             "-n $pkg/com.shilapi.xcertplay.AdbClusterActivity --es cluster_launch_token $token"
     }
 
@@ -176,16 +196,17 @@ internal object AdbClusterRouter {
     }
 
     /**
-     * Re-issues the direct launch for a task that already owns the projection, to move it back in
-     * front: the instrument re-opens its own projection window when DiPlay asks for the full-screen
-     * projection (16), which raises the stock map above DiPlay's cluster task. The already-confirmed
-     * display and token are reused, so nothing is invalidated when the shell is unavailable, and the
-     * result is best effort. Blocking; call off the UI thread.
+     * Re-orders the cluster task that already owns the projection back to the front: the instrument
+     * re-lays out its window when DiPlay asks for the full-screen projection (16), which raises the
+     * stock map above DiPlay's cluster task. The existing task is only reordered ([frontCommand] does
+     * not add MULTIPLE_TASK), so its activity, decoder and surface survive and nothing refreshes. The
+     * already-confirmed display and token are reused, so nothing is invalidated when the shell is
+     * unavailable, and the result is best effort. Blocking; call off the UI thread.
      */
     fun front(context: Context, display: Int, token: String): Boolean = runCatching {
         LocalAdb(AdbKeys.load(context)).use { adb ->
             if (adb.connect(mayAsk = false) != LocalAdb.Access.READY) false
-            else accepted(adb.shell(launchCommand(context.packageName, display, token)).orEmpty())
+            else accepted(adb.shell(frontCommand(context.packageName, display, token)).orEmpty())
         }
     }.getOrDefault(false)
 

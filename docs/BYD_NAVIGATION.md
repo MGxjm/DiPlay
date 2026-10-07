@@ -24,9 +24,10 @@ Approve DiPlay's ADB access once with "Check ADB access"; without it the broadca
 
 These commands run on both DiLink 3 and DiLink 4 head units, including while the ADB cluster route
 is selected: they open the instrument's projection window. DiPlay reads the instrument's navi mode
-every second and keeps the projection command in sync with it (16 for Full, 17 for Small). Every
-wheel switch to Full screen navi also closes the projection (18) and re-applies 16 once, so the
-instrument lays the window out in the full layout. The recovery marker is durable before a
+every second and keeps the projection command in sync with it: Small screen navi sends 17, Full
+screen navi sends 16 directly, without closing the projection first (a close would leave the
+dashboard blank until something reopened it), which is what makes the instrument lay the window out
+in the full-width layout. The recovery marker is durable before a
 command; failed restoration retains it and blocks new output until stock mode is restored.
 
 The projection display does not exist after the car starts until the cluster has projected once. When DiPlay opens with BYD navigation on and the display is missing, it runs 16 (projection on), 35 (Di4.0 mode, which creates the display) and 18, as BYD DashCast does; the cluster shows an empty projection area for about six seconds. The display then stays until the car restarts. The map window selects this display through the same exact-name and 1920x720 check as DiLink 4.0. If a CarPlay session started before the display existed, DiPlay shows the map window when the display appears and reconnects once so the iPhone sends the 1920x720 cluster stream.

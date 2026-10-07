@@ -109,6 +109,14 @@ class AdbClusterRouterTest {
         assertFalse(AdbClusterRouter.accepted(""))
         assertTrue(AdbClusterRouter.accepted("Starting: Intent {}"))
     }
+    @Test fun frontReordersTheExistingTaskWithoutRecreatingIt() {
+        val token = "01234567-89ab-cdef-0123-456789abcdef"
+        val command = AdbClusterRouter.frontCommand("com.shihab.diplay.hudtest", 7, token)
+        // NEW_TASK without MULTIPLE_TASK: Android reuses the running task instead of launching a
+        // second activity, which would re-attach the stream and refresh the cluster again.
+        assertTrue(command.startsWith("am start-activity --display 7 -f 0x10000000 "))
+        assertTrue(command.endsWith("--es cluster_launch_token $token"))
+    }
     @Test fun verifiesOnlyExactTaskInsidePerDisplayHistory() {
         val pkg = "com.shihab.diplay.hudtest"
         val record = "    * Hist #0: ActivityRecord{abc u0 $pkg/com.shilapi.xcertplay.AdbClusterActivity t12}"
