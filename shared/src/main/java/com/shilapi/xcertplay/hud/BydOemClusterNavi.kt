@@ -42,12 +42,18 @@ object BydOemClusterNavi {
      * instrument's projection window, forces Small screen navi, and opens the half-screen projection
      * (17). Only then does DiPlay launch its own projection; the stock map is disabled again once
      * that projection is confirmed (see [disableAfterProjection]).
+     *
+     * A launch that happens while the projection is already up (opening DiPlay again) primes
+     * nothing: the projection window is already built, the instrument ignores the half-screen
+     * projection (17) outside Small screen navi, and re-enabling the stock map here would let it
+     * grab the surface back.
      */
     fun primeForLaunch(context: Context, current: () -> Boolean): Boolean {
         val app = context.applicationContext
         return runCatching {
             worker.submit<Boolean> {
                 if (!applicable(app) || !current()) return@submit false
+                if (holdsStockMap(app)) return@submit true
                 if (!state(app).restoreStockMap()) return@submit false
                 if (!current()) return@submit false
                 shell.run(app, BydClusterNaviMode.selectSmallCommand())
@@ -105,6 +111,14 @@ object BydOemClusterNavi {
             edit.commit()
         },
     ).also { session = it }
+
+    /**
+     * Whether a projection this process already established still keeps the stock map disabled. The
+     * journal is only there while a hold is live, so a launch that finds one must leave the stock map
+     * alone instead of priming the projection again.
+     */
+    private fun holdsStockMap(context: Context): Boolean =
+        runCatching { journal(context) }.getOrNull() != null
 
     private fun journal(context: Context): OemClusterHoldSession.Journal? {
         val value = prefs(context).getString(JOURNAL, null) ?: return null
