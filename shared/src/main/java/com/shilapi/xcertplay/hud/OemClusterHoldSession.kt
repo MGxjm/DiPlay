@@ -67,7 +67,11 @@ internal class OemClusterHoldSession(
         var ok = true
         for (target in Target.entries) {
             val now = readState(target)
-            if (now != null && now != ENABLED_DEFAULT && !setState(target, ENABLED_DEFAULT)) ok = false
+            // DEFAULT (0) and ENABLED (1) both mean the target is enabled, so writing ENABLED for
+            // DEFAULT is a no-op. Some firmware rejects such a write for stock components
+            // ("Shell cannot change component state"), which would otherwise fail the whole restore.
+            if (now != null && now != ENABLED_DEFAULT && now != DEFAULT_STATE &&
+                !setState(target, ENABLED_DEFAULT)) ok = false
         }
         if (!saveJournal(null)) ok = false
         ownedLease = null
@@ -77,5 +81,8 @@ internal class OemClusterHoldSession(
     companion object {
         const val DISABLED_USER = 3
         const val ENABLED_DEFAULT = 1
+
+        /** PackageManager.COMPONENT_ENABLED_STATE_DEFAULT: no explicit state, i.e. enabled. */
+        const val DEFAULT_STATE = 0
     }
 }

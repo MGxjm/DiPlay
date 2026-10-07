@@ -153,7 +153,12 @@ internal object AdbClusterRouter {
                         enabled(context) && prepare(display)
                     }
                     appendLine("stockMapHoldReady=$held")
-                    if (!held || !enabled(context) || !prepare(display)) return@use
+                    // Holding the stock map only keeps it from taking the projection surface back.
+                    // A refused hold (firmware that rejects component state changes for the stock
+                    // map, or a hold that timed out) must not stop DiPlay's own projection: the
+                    // worst case is the stock map stays on top, whereas returning here shows
+                    // nothing at all.
+                    if (!enabled(context) || !prepare(display)) return@use
                     val output = adb.shell(launchCommand(context.packageName, display, token)).orEmpty()
                     success = accepted(output)
                     appendLine(output.take(1500))

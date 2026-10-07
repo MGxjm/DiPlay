@@ -12,6 +12,9 @@ object BydOemClusterNavi {
     internal const val STOCK_MAP_CLUSTER_ACTIVITY = "$STOCK_MAP.extra.MeterActivity"
     private const val TAG = "DiPlay-BYD-OemCluster"
     private const val JOURNAL = "restore_journal"
+
+    /** A hold that never returns (adb shell stuck) must not block the projection launch forever. */
+    private const val HOLD_TIMEOUT_SECONDS = 8L
     private val shell = BydAdbShell(TAG)
     private val worker = Executors.newSingleThreadScheduledExecutor {
         Thread(it, "diplay-oem-cluster").apply { isDaemon = true }
@@ -42,7 +45,7 @@ object BydOemClusterNavi {
                 val mode = BydOutputSettings.oemClusterHold(app)
                 (mode == BydOemClusterHold.OFF || applicable(app)) &&
                     state(app).acquire(mode, lease, current)
-            }.get()
+            }.get(HOLD_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         }.onFailure { Log.w(TAG, "Stock-map hold refused", it) }.getOrDefault(false)
     }
 
