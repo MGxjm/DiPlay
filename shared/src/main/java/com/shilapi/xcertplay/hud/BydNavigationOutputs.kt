@@ -68,10 +68,11 @@ object BydNavigationOutputs {
         val app = context.applicationContext
         useStandalone = BydStandaloneHudOutput.available(app)
         if (useStandalone) standalone.start { BydStandaloneNavigationBridge.initialize(app) }
-        else {
-            hud.start { BydHudBridge.initialize(app) }
-            cluster.start { BydClusterBridge.initialize(app) }
-        }
+        else hud.start { BydHudBridge.initialize(app) }
+        // The cluster is a separate consumer from the windshield HUD, so the standalone HUD must not
+        // replace it: without this the instrument's turn card has no content source at all and only
+        // ever shows what the stock map writes itself.
+        cluster.start { BydClusterBridge.initialize(app) }
         BydClusterMapPause.initialize(app)
         BydClusterSong.attach(app)
         BydCarPlayCall.attach(app)
@@ -91,10 +92,8 @@ object BydNavigationOutputs {
         val owned = frame // Iap2Frame is immutable and defensively copies its payload.
         updateOverlay(owned)
         if (useStandalone) standalone.submit { BydStandaloneNavigationBridge.onFrame(owned) }
-        else {
-            hud.submit { BydHudBridge.onFrame(owned) }
-            cluster.submit { BydClusterBridge.onFrame(owned) }
-        }
+        else hud.submit { BydHudBridge.onFrame(owned) }
+        cluster.submit { BydClusterBridge.onFrame(owned) }
     }
 
     /** Live next-turn state for the dashboard overlay. Called from the iAP2 thread. */

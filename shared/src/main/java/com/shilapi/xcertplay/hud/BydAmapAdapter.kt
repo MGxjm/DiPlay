@@ -2,8 +2,10 @@ package com.shilapi.xcertplay.hud
 
 /**
  * The stock AMap adapter that turns AUTONAVI_STANDARD_BROADCAST_SEND broadcasts into cluster guidance.
- * DiLink 3 (Android 10, Qualcomm 6125, "1for2" cluster) ships the same receiver as
- * com.example.amapservice, and its cluster shows the guidance card only in simple-navigation mode.
+ * DiLink 3 and DiLink 4 ship the same adapter and take the same cluster-mode commands, so this must
+ * not gate anything the cluster needs: the guidance card, the preformatted `*_AUTO` text and the
+ * simple-navigation command are identical on both, and only the projection-display creation below
+ * still keys on the package.
  */
 internal enum class BydAmapAdapter(val packageName: String, val needsSimpleNavigationMode: Boolean) {
     BYD("com.byd.amapservice", needsSimpleNavigationMode = false),
@@ -34,15 +36,17 @@ internal object BydDiLink3ClusterMode {
     }
 
     /**
-     * The mode to request now, or null while DiPlay has never changed the stock mode. The
-     * projection command follows the instrument's navi mode:
-     * - Turn-on-by-navi only shows the text guidance card, never the projection map, so it needs
-     *   the simple-navigation command (39). The mode read alone drives it: the guidance flag never
-     *   reaches this branch, because it is only fed on DiLink 3, which reports no mode at all.
-     * - Full screen navi always needs the full-screen projection (16): it is the only command that
-     *   opens the full window, so a mode that falls through to the stock view (18) would blank the
+     * The mode to request now, or null while DiPlay has never changed the stock mode. Once the
+     * instrument's navi mode is readable it decides alone, and the guidance/map flags are only the
+     * fallback for head units that report no mode at all (DiLink 3):
+     * - Turn-on-by-navi (2) shows the text guidance card and never the projection map, so it asks
+     *   for the simple-navigation command (39).
+     * - Full screen navi (4) always needs the full-screen projection (16): it is the only command
+     *   that opens the full window, so falling through to the stock view (18) would blank the
      *   dashboard until the driver changed the wheel mode again.
-     * - Small screen navi (and any unknown mode) uses the half-screen projection (17).
+     * - Small screen navi (3) keeps the window the instrument already latched: the half-screen
+     *   projection (17) only while DiPlay's map window is on the cluster, and never the turn card.
+     * - Off (1) closes the projection; a null mode (nothing to restore) leaves the stock view alone.
      */
     fun desired(mapShown: Boolean, guidanceActive: Boolean, requested: Mode?,
         instrumentMode: BydClusterNaviMode?,
@@ -50,6 +54,7 @@ internal object BydDiLink3ClusterMode {
         instrumentMode == BydClusterNaviMode.TURN_ON_BY_NAVI -> Mode.SIMPLE_NAVIGATION
         instrumentMode == BydClusterNaviMode.FULL -> Mode.FULL_PROJECTION
         mapShown -> Mode.PROJECTION
+        instrumentMode != null -> null
         guidanceActive -> Mode.SIMPLE_NAVIGATION
         requested != null -> Mode.STOCK
         else -> null

@@ -108,7 +108,9 @@ internal object BydClusterBridge {
             putExtra("NEXT_ROAD_NAME", frame.road)
             putExtra("ROUTE_REMAIN_DIS", frame.routeRemainingMeters)
             putExtra("ROUTE_REMAIN_TIME", frame.routeRemainingSeconds)
-            if (adapter?.needsSimpleNavigationMode == true) putDiLink3Text(this, frame)
+            // The shared adapter shows preformatted text rather than the numeric extras, on DiLink 3
+            // and DiLink 4 alike; without them the cluster shows -1.
+            putDiLink3Text(this, frame)
         }
         if (broadcastLocked(intent)) {
             lastSent = frame
@@ -153,12 +155,12 @@ internal object BydClusterBridge {
     }
 
     /**
-     * On DiLink 3 the cluster keeps its stock view until it is switched: simple navigation for the
-     * guidance card, or projection for DiPlay's map window. Restores the stock mode only after
-     * DiPlay changed it.
+     * Simple navigation for the guidance card, projection for DiPlay's map window. DiLink 3 and
+     * DiLink 4 ship the same adapter and take the same commands, so the adapter must not gate this:
+     * gating it left `guidanceActive` permanently false there and the turn card (39) was never
+     * requested. Restores the stock mode only after DiPlay changed it.
      */
     private fun applyClusterModeLocked() {
-        if (adapter?.needsSimpleNavigationMode != true) return
         val appContext = context ?: return
         BydDiLink3ClusterOutput.setDesired(appContext, mapShown, guidanceActive)
     }
