@@ -27,4 +27,9 @@ class BydClusterNaviModeTest {
     fun readsTheVerifiedId() {
         assertEquals("service call autoservice 5 i32 1007 i32 1086337074", BydClusterNaviMode.READ_COMMAND)
     }
+
+    @Test
+    fun thePrimeWritesFullScreenNavi() {
+        assertEquals("service call autoservice 6 i32 1007 i32 1276157976 i32 4", BydClusterNaviMode.selectFullCommand())
+    }
 }

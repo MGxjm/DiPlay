@@ -40,27 +40,29 @@ object BydOemClusterNavi {
      * Blocking, for the ADB routing worker only; never call from the Android main thread. Prepares
      * the DiLink 4 projection before the display-route launch: the first launch of a session
      * re-enables the whole stock map so its cluster activity rebuilds the instrument's projection
-     * window, and forces Small screen navi on the instrument.
+     * window, and forces Full screen navi on the instrument.
      *
-     * The projection command itself is always the one the instrument's navi mode asks for, never a
-     * fixed half-screen projection (17): Small screen navi keeps the window it already latched (no
-     * command), Full screen navi re-opens the full-screen projection (16), and a closed projection
-     * returns the stock view (18) — see [BydDiLink3ClusterOutput.resendForCurrentMode]. A launch while
-     * DiPlay already owns the projection skips the stock-map re-enable, which would let the stock map
-     * grab the surface back. The stock map is disabled again once that projection is confirmed
-     * (see [disableAfterProjection]).
+     * The prime writes Full screen navi and then asks for the full-screen projection (16) directly,
+     * instead of reading the instrument's mode back: the read still reports the pre-write mode until
+     * the next tick, and 16 is the only command that opens the full window. A launch while DiPlay
+     * already owns the projection skips the stock-map re-enable, which would let the stock map grab
+     * the surface back, and re-sends only the command the current mode needs — see
+     * [BydDiLink3ClusterOutput.resendForCurrentMode]. The stock map is disabled again once that
+     * projection is confirmed (see [disableAfterProjection]).
      */
     fun prepareForLaunch(context: Context, current: () -> Boolean): Boolean {
         val app = context.applicationContext
         return runCatching {
             worker.submit<Boolean> {
                 if (!applicable(app) || !current()) return@submit false
-                if (!holdsStockMap(app)) {
-                    if (!state(app).restoreStockMap()) return@submit false
-                    if (!current()) return@submit false
-                    shell.run(app, BydClusterNaviMode.selectSmallCommand())
+                if (holdsStockMap(app)) {
+                    BydDiLink3ClusterOutput.resendForCurrentMode(app)
+                    return@submit true
                 }
-                BydDiLink3ClusterOutput.resendForCurrentMode(app)
+                if (!state(app).restoreStockMap()) return@submit false
+                if (!current()) return@submit false
+                shell.run(app, BydClusterNaviMode.selectFullCommand())
+                BydDiLink3ClusterOutput.setInstrumentMode(app, BydClusterNaviMode.FULL)
                 true
             }.get(COMMAND_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         }.onFailure { Log.w(TAG, "Stock-map priming refused", it) }.getOrDefault(false)
