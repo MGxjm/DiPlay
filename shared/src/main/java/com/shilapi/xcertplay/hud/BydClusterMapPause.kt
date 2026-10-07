@@ -25,6 +25,7 @@ internal object BydClusterMapPause {
     // Only the ticker thread touches this, so nothing blocking ever runs under a lock that
     // initialize() or the UI needs.
     private var lastMode: BydClusterNaviMode? = null
+    private var mapWasOnCluster = false
 
     /** Whether DiPlay's map window is on the cluster. */
     @Volatile var clusterMapShown = false
@@ -50,16 +51,14 @@ internal object BydClusterMapPause {
     private fun tick() {
         val app = context ?: return
         val control = streamControl
-        if (control == null || !clusterMapShown) {
-            control?.invoke(true)
-            shell.close()
-            lastMode = null
-            BydClusterScreenStatus.reset()
-            return
-        }
-        // The mode is read regardless of the stream-pause setting: the instrument gates its
-        // projection window on INSTRUMENT_SEND_NAVI_STATUS_SET, which only the stock map used to
-        // write, so DiPlay re-announces it on every mode change (see BydClusterScreenStatus).
+        val mapOnCluster = control != null && clusterMapShown
+        // The wheel mode is read every second, and regardless of the stream-pause setting and of
+        // whether the CarPlay map window is currently on the cluster. The projection command has to
+        // follow it: Full screen navi only opens the projection once DiPlay sends the full-screen
+        // projection (16), and 17 is ignored there, so reading the mode only while the map is on the
+        // cluster would leave the dashboard blank in Full. The instrument gates its window on
+        // INSTRUMENT_SEND_NAVI_STATUS_SET, which only the stock map used to write, so DiPlay
+        // re-announces it on every mode change too (see BydClusterScreenStatus).
         val mode = readMode(app)
         if (mode != lastMode) {
             val previous = lastMode
@@ -74,6 +73,14 @@ internal object BydClusterMapPause {
                 BydDiLink3ClusterOutput.refreshProjection(app)
             }
         }
+        if (!mapOnCluster) {
+            control?.invoke(true)
+            // Re-announce the instrument state when the map window comes back to the cluster.
+            if (mapWasOnCluster) BydClusterScreenStatus.reset()
+            mapWasOnCluster = false
+            return
+        }
+        mapWasOnCluster = true
         if (!BydOutputSettings.clusterStreamPause(app)) {
             control(true)
             return
