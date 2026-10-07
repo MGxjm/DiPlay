@@ -69,17 +69,21 @@ object BydOemClusterNavi {
         }
     }
 
-    /** Always enqueue, even when the disable has not saved its journal yet. */
+    /**
+     * Always enqueue, even when the disable has not saved its journal yet. The lease names the hold
+     * being ended; a no-lease call is the app-open crash recovery, which must leave a hold this
+     * process still owns (a live projection) alone — see [OemClusterHoldSession.release].
+     */
     fun release(context: Context, lease: String? = null) {
         val app = context.applicationContext
         worker.execute {
-            val pendingLease = lease ?: runCatching { journal(app)?.lease }.getOrNull()
-            val restored = runCatching { state(app).release(pendingLease) }
+            val restored = runCatching { state(app).release(lease) }
                 .onFailure { Log.w(TAG, "Stock-map restore will retry", it) }.getOrDefault(false)
-            if (!restored) worker.schedule({ release(app, pendingLease) }, 30, TimeUnit.SECONDS)
+            if (!restored) worker.schedule({ release(app, lease) }, 30, TimeUnit.SECONDS)
         }
     }
 
+    /** App opened: restore a stock map left disabled by an earlier process, never a live projection. */
     fun restoreIfNeeded(context: Context) = release(context)
 
     private fun state(app: Context): OemClusterHoldSession = session ?: OemClusterHoldSession(

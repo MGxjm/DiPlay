@@ -23,7 +23,7 @@ internal class OemClusterHoldSession(
         val pending = loadJournal()
         if (pending != null && ownedLease == lease && pending.target == target &&
             readState(target) == DISABLED_USER) return current()
-        if (pending != null && !release()) return false
+        if (pending != null && !forceRelease()) return false
         if (!current()) return false
         val previous = readState(target)?.takeIf { it in 0..4 } ?: return false
         if (!saveJournal(Journal(target, previous, lease))) return false
@@ -36,8 +36,17 @@ internal class OemClusterHoldSession(
 
     fun release(lease: String? = null): Boolean {
         val pending = loadJournal() ?: return true
+        // A no-lease call is the app-open crash recovery. A hold this process still owns belongs to a
+        // live projection: opening another screen must not hand the stock map back mid-session.
+        if (lease == null && ownedLease != null) return true
         // A late failed launch must not undo a newer activity's hold.
         if (lease != null && lease != pending.lease) return true
+        return forceRelease()
+    }
+
+    /** Restores the journaled original state unconditionally, whatever lease holds it. */
+    private fun forceRelease(): Boolean {
+        val pending = loadJournal() ?: return true
         if (readState(pending.target) != pending.originalState &&
             !setState(pending.target, pending.originalState)) return false
         if (readState(pending.target) != pending.originalState || !saveJournal(null)) return false

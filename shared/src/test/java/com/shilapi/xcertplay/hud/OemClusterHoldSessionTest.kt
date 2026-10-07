@@ -82,9 +82,23 @@ class OemClusterHoldSessionTest {
 
     @Test fun restartRecoversACrashAfterDisable() {
         val r = Rig(1)
+        assertTrue(r.session().disablePackage("one") { true })
+        // A real restart drops the in-memory lease owner; only the journal survives in preferences.
+        assertTrue(r.session().release())
+        assertEquals(1, r.state)
+        assertNull(r.journal)
+    }
+
+    @Test fun openingAnotherScreenDoesNotUndoALiveHold() {
+        val r = Rig(1)
         val s = r.session()
         assertTrue(s.disablePackage("one") { true })
+        // App-open recovery in the same process: the hold is a live projection, so it stays disabled
+        // and the journal is kept for the session-end release.
         assertTrue(s.release())
+        assertEquals(3, r.state)
+        assertEquals("one", r.journal?.lease)
+        assertTrue(s.release("one"))
         assertEquals(1, r.state)
         assertNull(r.journal)
     }
