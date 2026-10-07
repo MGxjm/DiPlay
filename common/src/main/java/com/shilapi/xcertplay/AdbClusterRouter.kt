@@ -117,7 +117,9 @@ internal object AdbClusterRouter {
         val matches = mutableListOf<Int>()
         val component = "$pkg/com.shilapi.xcertplay.AdbClusterActivity"
         for (line in dump.lineSequence()) {
-            val header = Regex("^Display #(\\d+) \\(activities from top to bottom\\):\\s*$").matchEntire(line)
+            // Some firmware omits the trailing colon for non-default displays
+            // ("Display #1 (activities from top to bottom)"), so it must be optional.
+            val header = Regex("^Display #(\\d+) \\(activities from top to bottom\\):?\\s*$").matchEntire(line)
             if (header != null) { display = header.groupValues[1].toInt(); continue }
             if (line.isNotEmpty() && !line.first().isWhitespace()) display = null
             val current = display ?: continue

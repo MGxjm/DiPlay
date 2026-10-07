@@ -114,6 +114,8 @@ class AdbClusterRouterTest {
         val record = "    * Hist #0: ActivityRecord{abc u0 $pkg/com.shilapi.xcertplay.AdbClusterActivity t12}"
         val dump = "Display #7 (activities from top to bottom):\n$record\nResumedActivity: $record"
         assertEquals(7, AdbClusterRouter.activityDisplay(dump, pkg, 12))
+        // Some firmware omits the trailing colon after the display header.
+        assertEquals(7, AdbClusterRouter.activityDisplay(dump.replace("bottom):", "bottom)"), pkg, 12))
         assertNull(AdbClusterRouter.activityDisplay(dump, pkg, 13))
         assertNull(AdbClusterRouter.activityDisplay(dump.replace("Display #7", "Display #0"), pkg, 12))
         assertNull(AdbClusterRouter.activityDisplay("ResumedActivity: $record", pkg, 12))
