@@ -44,6 +44,14 @@ object BydNavigationOutputs {
     }
 
     /**
+     * The host listens here to put its cluster activity back in front after the instrument re-lays
+     * out the projection for a new navi mode (see [BydClusterMapPause.onMapModeEntered]).
+     */
+    fun setClusterMapModeListener(listener: (() -> Unit)?) {
+        BydClusterMapPause.onMapModeEntered = listener
+    }
+
+    /**
      * The car's battery for the iPhone's vehicle status; starts reading it over adb. The electric
      * vehicle is declared only once a reading is there (see withVehicleStatusFrom).
      */

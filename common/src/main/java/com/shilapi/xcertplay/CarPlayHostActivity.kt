@@ -829,6 +829,11 @@ class CarPlayHostActivity : ComponentActivity() {
             return
         }
         if (AdbClusterRouter.enabled(this)) {
+            // The instrument re-lays out its projection for a new navi mode and can raise the stock
+            // map above DiPlay's cluster task; re-issue the launch to come back in front.
+            com.shilapi.xcertplay.hud.BydNavigationOutputs.setClusterMapModeListener {
+                runOnUiThread { ClusterActivityOutput.reassertFront(this) }
+            }
             ClusterActivityOutput.bind(this, taskId) { onClusterSurface(it) }
             ClusterActivityOutput.setStreamActive(SCREEN_TYPE_ALT in activeScreenStreamTypes)
             applyClusterTurnOverlay()
@@ -933,6 +938,7 @@ class CarPlayHostActivity : ComponentActivity() {
 
     private fun dismissClusterPresentation() {
         ClusterActivityOutput.stop(this)
+        com.shilapi.xcertplay.hud.BydNavigationOutputs.setClusterMapModeListener(null)
         val presentations = (clusterLayers.values + listOfNotNull(clusterPresentation)).distinct()
         clusterLayers.clear()
         clusterPresentation = null

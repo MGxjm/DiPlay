@@ -136,6 +136,36 @@ internal object ClusterActivityOutput {
     private var launchHost = WeakReference<Activity>(null)
     private val retryTick = Runnable { launchHost.get()?.let(::ensure) }
 
+    // The instrument raises the stock map a moment after it gets the new projection, so the front
+    // pass is retried once. Main thread only.
+    private val frontDelays = longArrayOf(1_200L, 3_400L)
+    private var frontPending = false
+
+    /**
+     * Puts an already-routed cluster task back in front of the stock map: the instrument re-lays out
+     * its projection for a new navi mode and raises the stock map above DiPlay's cluster task. Best
+     * effort, and it keeps the confirmed route and its token, so a failed pass changes nothing.
+     */
+    fun reassertFront(host: Activity) {
+        if (frontPending || launchPending) return
+        if (!AdbClusterRouter.enabled(host) || host.isFinishing || host.isDestroyed) return
+        if (hostOwner !== host && previewHost.get() !== host) return
+        if (!hasConfirmedRoute()) return
+        val token = launchToken ?: return
+        val display = expectedDisplay
+        val app = host.applicationContext
+        frontPending = true
+        for ((index, delay) in frontDelays.withIndex()) main.postDelayed({
+            if (index == frontDelays.lastIndex) frontPending = false
+            // A newer launch or a closed route must not be disturbed by a stale front pass.
+            if (!AdbClusterRouter.enabled(app) || launchToken != token || expectedDisplay != display)
+                return@postDelayed
+            Thread({
+                runCatching { AdbClusterRouter.front(app, display, token) }
+            }, "adb-cluster-front").start()
+        }, delay)
+    }
+
     fun acceptsToken(token: String?): Boolean = token != null && token == launchToken && (hostOwner != null || previewHost.get() != null)
     fun hasConfirmedRoute(): Boolean = activity.get()?.let { !it.isFinishing && !it.isDestroyed } == true &&
         expectedDisplay > 0

@@ -175,6 +175,20 @@ internal object AdbClusterRouter {
         return Result(success, text)
     }
 
+    /**
+     * Re-issues the direct launch for a task that already owns the projection, to move it back in
+     * front: the instrument re-opens its own projection window when DiPlay asks for the full-screen
+     * projection (16), which raises the stock map above DiPlay's cluster task. The already-confirmed
+     * display and token are reused, so nothing is invalidated when the shell is unavailable, and the
+     * result is best effort. Blocking; call off the UI thread.
+     */
+    fun front(context: Context, display: Int, token: String): Boolean = runCatching {
+        LocalAdb(AdbKeys.load(context)).use { adb ->
+            if (adb.connect(mayAsk = false) != LocalAdb.Access.READY) false
+            else accepted(adb.shell(launchCommand(context.packageName, display, token)).orEmpty())
+        }
+    }.getOrDefault(false)
+
     fun verify(context: Context, task: Int): Int? = runCatching {
         LocalAdb(AdbKeys.load(context)).use { adb ->
             if (adb.connect(mayAsk = false) != LocalAdb.Access.READY) null

@@ -33,6 +33,13 @@ internal object BydClusterMapPause {
     /** The running CarPlay session, told every second whether the iPhone should draw the cluster map. */
     @Volatile var streamControl: ((Boolean) -> Unit)? = null
 
+    /**
+     * Told on the ticker thread when the wheel mode changes to one that shows the map (Small or Full
+     * screen navi). The instrument re-lays out its projection window for the new mode and can raise
+     * the stock map above DiPlay's own cluster task, so the host listens here to come back in front.
+     */
+    @Volatile var onMapModeEntered: (() -> Unit)? = null
+
     /** Reads the mode over adb. Blocking, and only called on the ticker thread; tests replace it. */
     @Volatile internal var readMode: (Context) -> BydClusterNaviMode? = { app ->
         BydClusterNaviMode.parseRead(shell.run(app, BydClusterNaviMode.READ_COMMAND))
@@ -72,6 +79,10 @@ internal object BydClusterMapPause {
             if (previous != null && previous != BydClusterNaviMode.FULL && mode == BydClusterNaviMode.FULL) {
                 BydDiLink3ClusterOutput.refreshProjection(app)
             }
+            // The instrument re-lays out its projection window for the new mode and raises the stock
+            // map above DiPlay's cluster task (measured with Full screen navi). The host puts its own
+            // task back in front once the instrument has finished rearranging.
+            if (mode?.showsMap == true) onMapModeEntered?.invoke()
         }
         if (!mapOnCluster) {
             control?.invoke(true)
