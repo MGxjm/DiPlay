@@ -43,6 +43,24 @@ class OemClusterHoldSessionTest {
         }
     }
 
+    @Test fun waitsForComponentDismissOnlyAfterTheServiceWasDisabled() {
+        val r = Rig()
+        val session = OemClusterHoldSession(
+            readState = { r.state },
+            setState = { target, next ->
+                r.events += "set=$target:$next"
+                r.state = next
+                true
+            },
+            loadJournal = { r.journal },
+            saveJournal = { next -> r.journal = next; true },
+            afterDisable = { target -> r.events += "settle=$target:${r.state}" },
+        )
+
+        assertTrue(session.acquire(BydOemClusterHold.COMPONENT, "one") { true })
+        assertEquals(listOf("set=COMPONENT:3", "settle=COMPONENT:3"), r.events)
+    }
+
     @Test fun diskFailurePreventsAnyOemWrite() {
         val r = Rig().apply { journalWritable = false }
         assertFalse(r.session().acquire(BydOemClusterHold.PACKAGE, "one") { true })
@@ -120,7 +138,7 @@ class OemClusterHoldSessionTest {
     }
 
     @Test fun componentCommandsUseTheFlattenedNameAndSupportAllOriginalStates() {
-        val component = "com.byd.automap/com.byd.automap.extra.MeterActivity"
+        val component = "com.byd.automap/com.byd.automap.service.VirtualBindService"
         assertEquals("pm disable-user --user 0 $component",
             BydOemClusterNavi.command(OemClusterHoldSession.Target.COMPONENT, 3))
         assertEquals("pm default-state --user 0 $component",

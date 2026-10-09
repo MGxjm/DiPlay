@@ -20,6 +20,15 @@ per-launch token and actual display before handing its surface to stream 111.
 Some firmware reports display 0 to the view; in that case the exact Activity task
 is checked in ADB's per-display Activity history.
 
+When **Hide only its cluster projection** is selected for the inspected BYD AMap
+package, DiPlay journals and disables `com.byd.automap.service.VirtualBindService`,
+waits for its `PresentationView` to dismiss, then uses the DiLink 3 container calls
+`16 → 35 → 16 → 17` to prepare and enter projection mode before launching its own
+Activity. The stock component is restored only after container mode `18` succeeds.
+An interrupted container transition is journaled and restored on the next app
+launch. This handoff is opt-in and still requires vehicle validation; the whole-map
+disable option does not use this container sequence.
+
 A successful shell launch is not proof of visible output. Unconfirmed launches
 retry after five seconds. Turning the feature off or destroying the host cancels
 queued retries and invalidates launch tokens. Failed routing is recorded in the

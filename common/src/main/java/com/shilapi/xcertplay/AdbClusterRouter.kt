@@ -75,7 +75,7 @@ internal object AdbClusterRouter {
                     val access = adb.connect(mayAsk = false)
                     appendLine("adbAccess=$access")
                     if (access != LocalAdb.Access.READY) return@use
-                    val display = displayId(adb.shell("dumpsys display").orEmpty())
+                    var display = displayId(adb.shell("dumpsys display").orEmpty())
                     appendLine("routeTarget=${display ?: "none"}")
                     if (display == null || !enabled(context) || !prepare(display)) return@use
                     val held = AirPlayPersistence.loadLegacyClusterEnabled(context) || !holdStockMap || com.shilapi.xcertplay.hud.BydOemClusterNavi.holdForLaunch(context, token) {
@@ -83,6 +83,18 @@ internal object AdbClusterRouter {
                     }
                     appendLine("stockMapHoldReady=$held")
                     if (!held || !enabled(context) || !prepare(display)) return@use
+                    if (holdStockMap && !AirPlayPersistence.loadLegacyClusterEnabled(context) &&
+                        com.shilapi.xcertplay.hud.BydOutputSettings.oemClusterHold(context) ==
+                            com.shilapi.xcertplay.hud.BydOemClusterHold.COMPONENT) {
+                        val projectionStarted = com.shilapi.xcertplay.hud.BydOemClusterNavi.startDiLink4Projection(app, token) {
+                            enabled(context) && prepare(display!!)
+                        }
+                        appendLine("dilink4ContainerProjection=$projectionStarted")
+                        if (!projectionStarted) return@use
+                        display = displayId(adb.shell("dumpsys display").orEmpty())
+                        appendLine("routeTargetAfterContainer=${display ?: "none"}")
+                        if (display == null || !enabled(context) || !prepare(display!!)) return@use
+                    }
                     val output = adb.shell(launchCommand(context.packageName, display, token)).orEmpty()
                     success = accepted(output)
                     appendLine(output.take(1500))

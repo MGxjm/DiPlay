@@ -6,6 +6,7 @@ internal class OemClusterHoldSession(
     private val setState: (Target, Int) -> Boolean,
     private val loadJournal: () -> Journal?,
     private val saveJournal: (Journal?) -> Boolean,
+    private val afterDisable: (Target) -> Unit = {},
 ) {
     enum class Target { COMPONENT, PACKAGE }
     data class Journal(val target: Target, val originalState: Int, val lease: String)
@@ -26,7 +27,10 @@ internal class OemClusterHoldSession(
         val previous = readState(target)?.takeIf { it in 0..4 } ?: return false
         if (!saveJournal(Journal(target, previous, lease))) return false
         ownedLease = lease
-        if (current() && setState(target, DISABLED_USER) && readState(target) == DISABLED_USER && current()) return true
+        if (current() && setState(target, DISABLED_USER) && readState(target) == DISABLED_USER && current()) {
+            afterDisable(target)
+            if (current()) return true
+        }
         // Failed commands can still have mutated the OEM state. Keep recovery evidence on failure.
         release(lease)
         return false

@@ -21,6 +21,7 @@ class AdbClusterActivity : Activity() {
     private var waiting: TextView? = null
     private var surface: Surface? = null
     private var videoTexture: ClusterVideoTexture? = null
+    private var videoFramePresented = false
     private var turnCard: ClusterTurnCardView? = null
     private var safeAreaPreview: SafeAreaEditorView? = null
     internal var routeStatus = ""
@@ -39,7 +40,7 @@ class AdbClusterActivity : Activity() {
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or
             View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         val root = FrameLayout(this).apply { setBackgroundColor(Color.TRANSPARENT) }
-        val video = ClusterVideoTexture(this, onPresented = { ClusterActivityOutput.presented(this) }) { next ->
+        val video = ClusterVideoTexture(this, onPresented = { onVideoFramePresented() }) { next ->
             surface?.let { ClusterActivityOutput.detach(this, it) }
             surface = next
             if (next != null && ClusterActivityOutput.activity.get() === this)
@@ -89,9 +90,20 @@ class AdbClusterActivity : Activity() {
     }
 
     internal fun updateStream() {
-        waiting?.visibility = if (ClusterActivityOutput.streamActive) View.GONE else View.VISIBLE
-        waiting?.text = ""
+        if (!ClusterActivityOutput.streamActive) videoFramePresented = false
+        updateWaiting()
         updateTurnCard()
+    }
+
+    internal fun onVideoFramePresented() {
+        if (ClusterActivityOutput.streamActive) videoFramePresented = true
+        ClusterActivityOutput.presented(this)
+        updateWaiting()
+    }
+
+    private fun updateWaiting() {
+        waiting?.text = getString(R.string.cluster_waiting_for_map)
+        waiting?.visibility = if (videoFramePresented) View.GONE else View.VISIBLE
     }
 
     internal fun updateTurnCard() {

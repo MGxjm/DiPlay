@@ -11,6 +11,37 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [29], manifest = Config.NONE)
 class ClusterActivityOutputTest {
+    @Test fun clusterShowsCarPlayWaitingMessageUntilFirstActiveVideoFrame() {
+        val app = org.robolectric.RuntimeEnvironment.getApplication()
+        AirPlayPersistence.saveAdbClusterEnabled(app, true)
+        val owner = Any()
+        ClusterActivityOutput.bind(owner, 4) { }
+        val token = "01234567-89ab-cdef-0123-456789abcdef"
+        ClusterActivityOutput::class.java.getDeclaredField("launchToken")
+            .apply { isAccessible = true }.set(ClusterActivityOutput, token)
+        ClusterActivityOutput::class.java.getDeclaredField("expectedDisplay")
+            .apply { isAccessible = true }.setInt(ClusterActivityOutput, 7)
+        val activity = org.robolectric.Robolectric.buildActivity(AdbClusterActivity::class.java).get()
+        try {
+            val waiting = AdbClusterActivity::class.java.getDeclaredField("waiting")
+                .apply { isAccessible = true }.get(activity) as android.widget.TextView
+            assertEquals(app.getString(R.string.cluster_waiting_for_map), waiting.text.toString())
+            assertEquals(android.view.View.VISIBLE, waiting.visibility)
+            ClusterActivityOutput.setStreamActive(true)
+            activity.updateStream()
+            assertEquals(android.view.View.VISIBLE, waiting.visibility)
+            activity.onVideoFramePresented()
+            assertEquals(android.view.View.GONE, waiting.visibility)
+            ClusterActivityOutput.setStreamActive(false)
+            assertEquals(android.view.View.VISIBLE, waiting.visibility)
+        } finally {
+            ClusterActivityOutput.setStreamActive(false)
+            ClusterActivityOutput.stop(owner)
+            AirPlayPersistence.saveAdbClusterEnabled(app, false)
+            activity.finish()
+        }
+    }
+
     @Test fun launchRejectsWrongTokenAndDisplayAndStopInvalidatesTheTicket() {
         val app = org.robolectric.RuntimeEnvironment.getApplication()
         AirPlayPersistence.saveAdbClusterEnabled(app, true)
