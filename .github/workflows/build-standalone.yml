@@ -1,0 +1,67 @@
+name: Build standalone DiPlay APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject credential files in public source
+        run: python3 scripts/check_public_tree.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-37.0 build-tools;36.0.0 ndk;28.2.13676358
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Provision runtime authentication assets
+        env:
+          DIPLAY_IDENTITY_PK8_BASE64: ${{ secrets.DIPLAY_IDENTITY_PK8_BASE64 }}
+          DIPLAY_CERTIFICATE_P7B_BASE64: ${{ secrets.DIPLAY_CERTIFICATE_P7B_BASE64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          if [[ -z "$DIPLAY_IDENTITY_PK8_BASE64" || -z "$DIPLAY_CERTIFICATE_P7B_BASE64" ]]; then
+            echo 'Configure DIPLAY_IDENTITY_PK8_BASE64 and DIPLAY_CERTIFICATE_P7B_BASE64 in repository Actions secrets.' >&2
+            exit 1
+          fi
+          auth_dir="$RUNNER_TEMP/diplay-auth-assets"
+          mkdir -p "$auth_dir/offline-mfi"
+          printf '%s' "$DIPLAY_IDENTITY_PK8_BASE64" | base64 --decode > "$auth_dir/offline-mfi/identity.pk8"
+          printf '%s' "$DIPLAY_CERTIFICATE_P7B_BASE64" | base64 --decode > "$auth_dir/offline-mfi/certificate.p7b"
+          test -s "$auth_dir/offline-mfi/identity.pk8"
+          test -s "$auth_dir/offline-mfi/certificate.p7b"
+          echo "DIPLAY_AUTH_ASSETS_DIR=$auth_dir" >> "$GITHUB_ENV"
+      - name: Test, lint and build standalone APK
+        run: ./gradlew :shared:testDebugUnitTest :common:testDebugUnitTest :mobile:lintDebug :mobile:assembleStandaloneDebug --stacktrace
+      - name: Verify APK authentication entries and record digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk='mobile/build/outputs/apk/debug/mobile-debug.apk'
+          unzip -Z1 "$apk" | grep -Fx 'assets/offline-mfi/identity.pk8'
+          unzip -Z1 "$apk" | grep -Fx 'assets/offline-mfi/certificate.p7b'
+          digest="$(sha256sum "$apk" | cut -d' ' -f1)"
+          {
+            echo '### Standalone APK'
+            echo
+            echo "File: \`mobile-debug.apk\`"
+            echo "SHA-256: \`$digest\`"
+            echo
+            echo 'This APK embeds the supplied experimental identity. Treat the artifact as public and extractable.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DiPlay-standalone-${{ github.sha }}
+          path: mobile/build/outputs/apk/debug/mobile-debug.apk
+          if-no-files-found: error
+          retention-days: 3

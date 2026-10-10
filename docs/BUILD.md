@@ -139,6 +139,36 @@ Use this APK for a standalone connection test.
 Update the existing test app with the same signing key to keep its settings.
 Different signing keys cannot update the same installed application.
 
+### Build and download a standalone APK with GitHub Actions
+
+The manual [standalone APK workflow](../.github/workflows/build-standalone.yml)
+reads two base64-encoded repository Actions secrets and writes the decoded files
+only under the runner's temporary directory:
+
+- `DIPLAY_IDENTITY_PK8_BASE64`: the bytes of `identity.pk8`, encoded as one base64 line.
+- `DIPLAY_CERTIFICATE_P7B_BASE64`: the bytes of `certificate.p7b`, encoded as one base64 line.
+
+Create each value locally without adding the files to the repository. On macOS:
+
+```sh
+base64 -i runtime-assets/offline-mfi/identity.pk8 | tr -d '\n'
+base64 -i runtime-assets/offline-mfi/certificate.p7b | tr -d '\n'
+```
+
+Add each output under **Repository → Settings → Secrets and variables → Actions**
+using the exact names above. Do not put these values in workflow inputs, source,
+issues, or chat. Then run **Actions → Build standalone DiPlay APK → Run workflow**.
+After it succeeds, download `DiPlay-standalone-<commit>` from that run's **Artifacts**.
+The artifact expires after three days. It is a debug APK (`com.shihab.diplay.hudtest`)
+signed with that runner's debug key; an existing install with a different signer
+must be removed before installing it.
+
+The APK embeds the supplied experimental identity, including its private key.
+The repository is public, so treat the artifact and anyone able to download it as
+public distribution. This workflow does not publish a GitHub Release and does not
+upload the original credential files separately. Public preview identity risks
+remain as described in [Third-party notices](THIRD_PARTY_NOTICES.md).
+
 ## Build a release APK
 
 Prepare the runtime assets as described in the car-test procedure.
