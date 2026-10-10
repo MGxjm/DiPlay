@@ -19,7 +19,10 @@ internal object AdbClusterRouter {
             return public == null || DiLink4ClusterDisplay.matches(public.name,
                 ClusterMapPresentation.sizeOf(public).x, ClusterMapPresentation.sizeOf(public).y)
         }
-        return AirPlayPersistence.loadAdbClusterEnabled(context) && public == null
+        return AirPlayPersistence.loadAdbClusterEnabled(context) &&
+            (public == null || DiLink4ClusterDisplay.matches(
+                public.name, ClusterMapPresentation.sizeOf(public).x, ClusterMapPresentation.sizeOf(public).y,
+            ))
     }
 
     // Match only the base logical display, not a device's layer-stack number or override record.

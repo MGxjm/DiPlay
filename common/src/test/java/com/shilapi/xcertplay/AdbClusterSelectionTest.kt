@@ -98,10 +98,21 @@ class AdbClusterSelectionTest {
         }
         try {
             AirPlayPersistence.saveAdbClusterEnabled(app, true)
-            assertFalse(AdbClusterRouter.enabled(app))
+            assertTrue(AdbClusterRouter.enabled(app))
             AirPlayPersistence.saveLegacyClusterEnabled(app, true)
             assertTrue(AdbClusterRouter.enabled(app))
         } finally { ShadowDisplayManager.removeDisplay(id) }
     }
 
+
+    @Test fun adbRouteAndStockMapHandlingStayAvailableOnTheMeasuredDilink4Display() {
+        AirPlayPersistence.saveAdbClusterEnabled(app, true)
+        val id = ShadowDisplayManager.addDisplay("w1920dp-h720dp-mdpi", 5)
+        shadowOf(app.getSystemService(DisplayManager::class.java).getDisplay(id)).apply {
+            setName(DiLink4ClusterDisplay.NAME)
+            setFlags(Display.FLAG_PRESENTATION)
+        }
+        try { assertTrue(AdbClusterRouter.enabled(app)) }
+        finally { ShadowDisplayManager.removeDisplay(id) }
+    }
 }
