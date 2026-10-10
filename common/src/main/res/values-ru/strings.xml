@@ -405,6 +405,7 @@
     <string name="your_phone_your_drive">ВАШ ТЕЛЕФОН. ВАША ПОЕЗДКА.</string>
     <string name="your_report_was_saved_to_the_selected_location">Отчёт сохранён в выбранном месте.</string>
     <string name="cluster_waiting_for_map">DiPlay · ожидание карты CarPlay</string>
+    <string name="cluster_open_vehicle_projection_mode">Экран проекции приборной панели не найден. Включите проекцию в автомобиле; DiPlay подключится автоматически, когда экран появится.</string>
     <string name="option_size_large">Большой</string>
     <string name="option_size_medium">Средний</string>
     <string name="option_size_small">Маленький</string>

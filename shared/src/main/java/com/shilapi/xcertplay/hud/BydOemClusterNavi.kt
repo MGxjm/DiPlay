@@ -29,8 +29,10 @@ object BydOemClusterNavi {
         return runCatching {
             worker.submit<Boolean> {
                 val mode = BydOutputSettings.oemClusterHold(app)
-                (mode == BydOemClusterHold.OFF || applicable(app)) &&
-                    state(app).acquire(mode, lease, current)
+                when (mode) {
+                    BydOemClusterHold.OFF, BydOemClusterHold.COMPONENT -> true
+                    BydOemClusterHold.PACKAGE -> applicable(app) && state(app).acquire(mode, lease, current)
+                }
             }.get()
         }.onFailure { Log.w(TAG, "Stock-map hold refused", it) }.getOrDefault(false)
     }
@@ -41,7 +43,7 @@ object BydOemClusterNavi {
         return runCatching {
             worker.submit<Boolean> {
                 val held = journal(app)
-                held?.target == OemClusterHoldSession.Target.COMPONENT && held.lease == lease &&
+                held?.target == OemClusterHoldSession.Target.PACKAGE && held.lease == lease &&
                     current() && projectionState(app).enter()
             }.get()
         }.onFailure { Log.w(TAG, "DiLink 4 projection start failed", it) }.getOrDefault(false)
@@ -83,7 +85,7 @@ object BydOemClusterNavi {
             edit.commit()
         },
         afterDisable = { target ->
-            if (target == OemClusterHoldSession.Target.COMPONENT) Thread.sleep(1_500L)
+            Thread.sleep(1_500L)
         },
     ).also { session = it }
 

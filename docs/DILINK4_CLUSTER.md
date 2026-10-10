@@ -20,20 +20,26 @@ per-launch token and actual display before handing its surface to stream 111.
 Some firmware reports display 0 to the view; in that case the exact Activity task
 is checked in ADB's per-display Activity history.
 
-When **Hide only its cluster projection** is selected for the inspected BYD AMap
-package, DiPlay journals and disables `com.byd.automap.service.VirtualBindService`,
-waits for its `PresentationView` to dismiss, then uses the DiLink 3 container calls
-`16 → 35 → 16 → 17` to prepare and enter projection mode before launching its own
-Activity. The stock component is restored only after container mode `18` succeeds.
-An interrupted container transition is journaled and restored on the next app
-launch. This handoff is opt-in and still requires vehicle validation; the whole-map
-disable option does not use this container sequence.
+In shared mode, DiPlay does not disable or stop AMap and does not change instrument
+mode or container state. The vehicle owns projection mode. DiPlay checks for the
+existing `fission_bg_xdjaVirtualSurface` display, prompts the driver to enable
+projection mode when it is absent, and launches its Activity only after finding the
+validated display. The AMap presentation and DiPlay may share the display. A
+per-display Activity-stack check brings DiPlay's task back to the top if another
+window covers it.
+
+The separate **Disable the whole stock map** option is an explicit takeover path.
+It journals and disables the AMap package, then uses the DiLink 3 container calls
+`16 → 35 → 16 → 17` to prepare and enter projection mode. On stop or interrupted
+startup it restores container mode `18` before restoring the package's original
+enabled state. This path requires system permission to disable the preinstalled
+map package and must not be selected when the shell lacks that permission.
 
 A successful shell launch is not proof of visible output. Unconfirmed launches
 retry after five seconds. Turning the feature off or destroying the host cancels
 queued retries and invalidates launch tokens. Failed routing is recorded in the
-normal diagnostic export. No stock task is moved and no OEM projection mode is
-changed.
+normal diagnostic export. Shared mode does not move stock tasks or change OEM
+projection mode.
 
 ## Layout and navigation
 
@@ -66,11 +72,9 @@ saved. Until an activity confirms the private display, the original virtual stre
 remains. If confirmation arrives after CarPlay starts, DiPlay reconnects once to
 request 1920×720 and covers the cluster during that transition. Turning off only
 the ADB option leaves the saved cluster-map enable preference intact.
-When the DiLink 4 ADB option is selected, automatic DiLink 3 cluster-mode
-commands are suppressed. The installed AMap adapter package alone cannot identify
-the generation: those commands can switch a DiLink 4 cluster to half-screen or
-close its native casting. A pending DiLink 3 recovery journal is retained until
-the ADB option is deselected. The user-selected native casting mode is preserved.
+In shared mode, the DiLink 4 ADB route never sends DiLink 3 mode commands, so the
+vehicle's selected mode is preserved. The DiLink 3 commands run only in the
+explicit whole-package takeover path.
 
 USB reconnection and colour controls retain the implementations already on main. Automated tests cannot establish visible placement on other cars.
 

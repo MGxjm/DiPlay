@@ -418,6 +418,7 @@
     <string name="your_phone_your_drive">你的手機，暢享旅程。</string>
     <string name="your_report_was_saved_to_the_selected_location">報告已儲存至所選位置。</string>
     <string name="cluster_waiting_for_map">DiPlay · 等待 CarPlay 地圖</string>
+    <string name="cluster_open_vehicle_projection_mode">找不到儀表投影螢幕。請先在車機儀表開啟投影模式，DiPlay 偵測到後會自動連線。</string>
     <string name="option_size_large">大</string>
     <string name="option_size_medium">中</string>
     <string name="option_size_small">小</string>
@@ -645,10 +646,10 @@
     <string name="cluster_safe_area_reset">重設儀表安全區域</string>
     <string name="cluster_safe_area_hint">拖曳四條綠色邊界，儲存後在下次 CarPlay 連線時生效。自訂區域會替代車輛標記偏移，重設後恢復。</string>
     <string name="cluster_safe_area_live_hint">在此拖曳綠色邊界，儀表會同步顯示區域框。儲存後重新連線生效；取消保留當前區域。</string>
-    <string name="oem_cluster_map">隱藏原車儀表地圖</string>
-    <string name="oem_cluster_map_description">可選：DiPlay 投放期間暫停原車地圖的儀表投放。關閉時不修改原車地圖。組件模式只隱藏儀表投放，整套模式會停用整個原車地圖，停止投放後恢復原狀態。需要已授權的本機 ADB，重新連線後生效。</string>
+    <string name="oem_cluster_map">原車儀表地圖處理方式</string>
+    <string name="oem_cluster_map_description">共存模式由車輛管理儀表模式和原車地圖，DiPlay 使用車輛已開放的投影螢幕，可與原車地圖同時顯示。停用整套模式會停用整個高德，再由 DiPlay 管理容器投影模式。需要已授權的本機 ADB，重新連線後生效。</string>
     <string name="oem_cluster_hold_off">關閉</string>
-    <string name="oem_cluster_hold_component">只隱藏儀表投放</string>
+    <string name="oem_cluster_hold_component">與原車地圖共存（推薦）</string>
     <string name="oem_cluster_hold_package">停用整個原車地圖</string>
     <string name="song_on_hud">HUD 顯示歌曲名稱或歌詞</string>
     <string name="song_on_hud_description">無導航指引時顯示手機提供的歌曲名稱或歌詞，導航方向和道路名稱優先。</string>

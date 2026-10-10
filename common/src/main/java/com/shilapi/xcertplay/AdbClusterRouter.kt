@@ -62,6 +62,27 @@ internal object AdbClusterRouter {
         return matches.singleOrNull()?.takeIf { it > 0 }
     }
 
+    internal fun activityIsTop(dump: String, pkg: String, task: Int, displayId: Int): Boolean? {
+        val displayHeader = "Display #$displayId (activities from top to bottom):"
+        if (!dump.lineSequence().any { it.startsWith(displayHeader) }) return null
+        var currentDisplay: Int? = null
+        val component = "$pkg/com.shilapi.xcertplay.AdbClusterActivity"
+        for (line in dump.lineSequence()) {
+            val headerPrefix = "Display #"
+            val headerSuffix = " (activities from top to bottom):"
+            if (line.startsWith(headerPrefix) && line.endsWith(headerSuffix)) {
+                currentDisplay = line.removePrefix(headerPrefix).removeSuffix(headerSuffix).toIntOrNull()
+                continue
+            }
+            if (line.isNotEmpty() && !line.first().isWhitespace()) currentDisplay = null
+            if (currentDisplay != displayId ||
+                !Regex("^\\s{4,}\\* Hist #0: ActivityRecord\\{").containsMatchIn(line)) continue
+            return Regex("\\bu\\d+\\s+" + Regex.escape(component) + "(?=\\s|,)").containsMatchIn(line) &&
+                Regex("\\bt$task(?=\\s|\\})").containsMatchIn(line)
+        }
+        return false
+    }
+
     fun launch(context: Context, token: String, holdStockMap: Boolean = true, prepare: (Int) -> Boolean): Result {
         var success = false
         val text = buildString {
@@ -75,27 +96,32 @@ internal object AdbClusterRouter {
                     val access = adb.connect(mayAsk = false)
                     appendLine("adbAccess=$access")
                     if (access != LocalAdb.Access.READY) return@use
-                    var display = displayId(adb.shell("dumpsys display").orEmpty())
+                    val initialDisplay = displayId(adb.shell("dumpsys display").orEmpty())
+                    var display = initialDisplay
+                    val takeover = holdStockMap && !AirPlayPersistence.loadLegacyClusterEnabled(context) &&
+                        com.shilapi.xcertplay.hud.BydOutputSettings.oemClusterHold(context) ==
+                            com.shilapi.xcertplay.hud.BydOemClusterHold.PACKAGE
                     appendLine("routeTarget=${display ?: "none"}")
-                    if (display == null || !enabled(context) || !prepare(display)) return@use
+                    if (!enabled(context) || (display == null && !takeover) ||
+                        (display != null && !prepare(display))) return@use
                     val held = AirPlayPersistence.loadLegacyClusterEnabled(context) || !holdStockMap || com.shilapi.xcertplay.hud.BydOemClusterNavi.holdForLaunch(context, token) {
-                        enabled(context) && prepare(display)
+                        enabled(context) && (initialDisplay?.let(prepare) ?: takeover)
                     }
                     appendLine("stockMapHoldReady=$held")
-                    if (!held || !enabled(context) || !prepare(display)) return@use
-                    if (holdStockMap && !AirPlayPersistence.loadLegacyClusterEnabled(context) &&
-                        com.shilapi.xcertplay.hud.BydOutputSettings.oemClusterHold(context) ==
-                            com.shilapi.xcertplay.hud.BydOemClusterHold.COMPONENT) {
-                        val projectionStarted = com.shilapi.xcertplay.hud.BydOemClusterNavi.startDiLink4Projection(app, token) {
-                            enabled(context) && prepare(display!!)
+                    if (!held || !enabled(context) || (display != null && !prepare(display))) return@use
+                    if (takeover) {
+                        val projectionStarted = com.shilapi.xcertplay.hud.BydOemClusterNavi.startDiLink4Projection(context, token) {
+                            enabled(context) && (initialDisplay?.let(prepare) ?: true)
                         }
                         appendLine("dilink4ContainerProjection=$projectionStarted")
                         if (!projectionStarted) return@use
                         display = displayId(adb.shell("dumpsys display").orEmpty())
                         appendLine("routeTargetAfterContainer=${display ?: "none"}")
-                        if (display == null || !enabled(context) || !prepare(display!!)) return@use
+                        if (display == null || !enabled(context)) return@use
                     }
-                    val output = adb.shell(launchCommand(context.packageName, display, token)).orEmpty()
+                    val targetDisplay = display ?: return@use
+                    if (!prepare(targetDisplay)) return@use
+                    val output = adb.shell(launchCommand(context.packageName, targetDisplay, token)).orEmpty()
                     success = accepted(output)
                     appendLine(output.take(1500))
                     appendLine("launchAccepted=$success; awaiting actual display confirmation")
@@ -113,6 +139,15 @@ internal object AdbClusterRouter {
         LocalAdb(AdbKeys.load(context)).use { adb ->
             if (adb.connect(mayAsk = false) != LocalAdb.Access.READY) null
             else activityDisplay(adb.shell("dumpsys activity activities").orEmpty(), context.packageName, task)
+        }
+    }.getOrNull()
+
+    fun verifyTop(context: Context, task: Int, displayId: Int): Boolean? = runCatching {
+        LocalAdb(AdbKeys.load(context)).use { adb ->
+            if (adb.connect(mayAsk = false) != LocalAdb.Access.READY) null
+            else adb.shell("dumpsys activity activities")?.let {
+                activityIsTop(it, context.packageName, task, displayId)
+            }
         }
     }.getOrNull()
 

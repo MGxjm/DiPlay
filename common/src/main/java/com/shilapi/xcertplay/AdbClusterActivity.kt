@@ -1,6 +1,7 @@
 package com.shilapi.xcertplay
 
 import android.app.Activity
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.graphics.drawable.ColorDrawable
@@ -13,6 +14,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
+import android.widget.Toast
 import com.shilapi.xcertplay.host.R
 import java.lang.ref.WeakReference
 
@@ -61,14 +63,9 @@ class AdbClusterActivity : Activity() {
                 }
             }
         }
-        waiting = TextView(this).apply {
-            setBackgroundColor(Color.BLACK)
-            setTextColor(Color.WHITE)
-            textSize = 22f
-            gravity = Gravity.CENTER
-            setPadding(24, 24, 24, 24)
-        }
-        videoRegion.addView(waiting, FrameLayout.LayoutParams(-1, -1))
+        waiting = clusterWaitingLabel(this)
+        videoRegion.addView(waiting, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
         turnCard = ClusterTurnCardView(this).apply { visibility = View.GONE }
         root.addView(turnCard, FrameLayout.LayoutParams(-1, -1))
         safeAreaPreview = SafeAreaEditorView(this).apply {
@@ -151,6 +148,15 @@ class AdbClusterActivity : Activity() {
     }
 }
 
+internal fun clusterWaitingLabel(context: Context): TextView = TextView(context).apply {
+    text = context.getString(R.string.cluster_waiting_for_map)
+    background = ColorDrawable(Color.argb(160, 0, 0, 0))
+    setTextColor(Color.WHITE)
+    textSize = 18f
+    gravity = Gravity.CENTER
+    setPadding(16, 10, 16, 10)
+}
+
 /** Main-thread handoff, with identity checks so a stale activity cannot clear a newer surface. */
 internal object ClusterActivityOutput {
     var activity = WeakReference<AdbClusterActivity>(null)
@@ -161,10 +167,15 @@ internal object ClusterActivityOutput {
     @Volatile private var expectedDisplay = -1
     private var launchHost = WeakReference<Activity>(null)
     private var legacyPresented = false
-    private val retryTick = Runnable {
-        launchHost.get()?.let { host ->
-            ensure(host)
-            if (AirPlayPersistence.loadLegacyClusterEnabled(host) && !legacyPresented) retry()
+    private var noDisplayNoticeShown = false
+    private val retryTick: Runnable = object : Runnable {
+        override fun run() {
+            launchHost.get()?.let { host ->
+                if (AirPlayPersistence.loadLegacyClusterEnabled(host) && legacyPresented) return
+                ensure(host)
+                if (!AirPlayPersistence.loadLegacyClusterEnabled(host)) checkTopAndRecover(host)
+                main.postDelayed(this, 5_000L)
+            }
         }
     }
 
@@ -173,7 +184,6 @@ internal object ClusterActivityOutput {
         if (legacyPresented || activity.get() !== window || !AirPlayPersistence.loadLegacyClusterEnabled(window) ||
             !streamActive || surfaceOwner !== window || surface?.isValid != true || !hasConfirmedRoute()) return
         legacyPresented = true
-        main.removeCallbacks(retryTick)
     }
 
     fun acceptsToken(token: String?): Boolean = token != null && token == launchToken && (hostOwner != null || previewHost.get() != null)
@@ -186,7 +196,7 @@ internal object ClusterActivityOutput {
         activity = WeakReference(window)
         launchPending = false
         main.removeCallbacks(retryTick)
-        if (AirPlayPersistence.loadLegacyClusterEnabled(window) && !legacyPresented) retry()
+        retry()
         return true
     }
     fun retry(force: Boolean = false) {
@@ -194,7 +204,10 @@ internal object ClusterActivityOutput {
         main.removeCallbacks(retryTick)
         val host = launchHost.get() ?: return
         if (AirPlayPersistence.loadLegacyClusterEnabled(host) && legacyPresented) return
-        if (hostOwner != null || previewHost.get() != null) main.postDelayed(retryTick, 5_000L)
+        if (hostOwner != null || previewHost.get() != null) {
+            if (!AirPlayPersistence.loadLegacyClusterEnabled(host)) checkTopAndRecover(host)
+            main.postDelayed(retryTick, 5_000L)
+        }
     }
     var mainTaskId = -1
         private set
@@ -292,7 +305,8 @@ internal object ClusterActivityOutput {
                 else { expectedDisplay = display; true }
             }
             main.post {
-                completeLaunch(token, generation == epoch, result.success) {
+                completeLaunch(token, generation == epoch, result.success,
+                    missingDisplay = Regex("routeTarget(?:AfterContainer)?=none").containsMatchIn(result.report)) {
                     com.shilapi.xcertplay.hud.BydOemClusterNavi.release(app, token)
                 }
             }
@@ -300,9 +314,18 @@ internal object ClusterActivityOutput {
     }
 
     /** Actual display confirmation overrides an inconclusive shell reply. Main thread only. */
-    internal fun completeLaunch(token: String, current: Boolean, accepted: Boolean, release: () -> Unit) {
+    internal fun completeLaunch(token: String, current: Boolean, accepted: Boolean,
+        missingDisplay: Boolean = false, release: () -> Unit) {
         if (!current) { release(); return }
         launchPending = false
+        launchHost.get()?.let { host ->
+            if (missingDisplay && !noDisplayNoticeShown) {
+                noDisplayNoticeShown = true
+                host.runOnUiThread {
+                    Toast.makeText(host, R.string.cluster_open_vehicle_projection_mode, Toast.LENGTH_LONG).show()
+                }
+            } else if (!missingDisplay) noDisplayNoticeShown = false
+        }
         if (!hasConfirmedRoute()) {
             if (!accepted) {
                 // Invalidate admission before releasing OEM state: a delayed Activity cannot attach.
@@ -311,6 +334,28 @@ internal object ClusterActivityOutput {
             }
             retry()
         }
+    }
+
+    private fun checkTopAndRecover(host: Activity) {
+        val current = activity.get() ?: return
+        val targetDisplay = expectedDisplay
+        if (targetDisplay <= 0 || !hasConfirmedRoute()) return
+        Thread({
+            val isTop = AdbClusterRouter.verifyTop(host.applicationContext, current.taskId, targetDisplay)
+            main.post {
+                if (activity.get() !== current || expectedDisplay != targetDisplay ||
+                    (hostOwner !== host && previewHost.get() !== host)) return@post
+                if (isTop == false) {
+                    launchPending = false
+                    launchToken = null
+                    expectedDisplay = -1
+                    legacyPresented = false
+                    activity.clear()
+                    current.finish()
+                    ensure(host)
+                }
+            }
+        }, "cluster-top-check").start()
     }
 
     fun attach(owner: Any, next: Surface) {
@@ -358,6 +403,7 @@ internal object ClusterActivityOutput {
         surfaceOwner = null
         launchPending = false
         guidance = null
+        noDisplayNoticeShown = false
         previewOwner = null
         previewHost.clear()
         previewRect = null

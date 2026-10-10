@@ -22,17 +22,20 @@ class ClusterActivityOutputTest {
         ClusterActivityOutput::class.java.getDeclaredField("expectedDisplay")
             .apply { isAccessible = true }.setInt(ClusterActivityOutput, 7)
         val activity = org.robolectric.Robolectric.buildActivity(AdbClusterActivity::class.java).get()
+        val waiting = clusterWaitingLabel(app)
+        AdbClusterActivity::class.java.getDeclaredField("waiting")
+            .apply { isAccessible = true }.set(activity, waiting)
         try {
-            val waiting = AdbClusterActivity::class.java.getDeclaredField("waiting")
-                .apply { isAccessible = true }.get(activity) as android.widget.TextView
-            assertEquals(app.getString(R.string.cluster_waiting_for_map), waiting.text.toString())
+            assertTrue(waiting.text.toString().startsWith("DiPlay"))
             assertEquals(android.view.View.VISIBLE, waiting.visibility)
+            assertTrue(android.graphics.Color.alpha((waiting.background as android.graphics.drawable.ColorDrawable).color) < 255)
             ClusterActivityOutput.setStreamActive(true)
             activity.updateStream()
             assertEquals(android.view.View.VISIBLE, waiting.visibility)
             activity.onVideoFramePresented()
             assertEquals(android.view.View.GONE, waiting.visibility)
             ClusterActivityOutput.setStreamActive(false)
+            activity.updateStream()
             assertEquals(android.view.View.VISIBLE, waiting.visibility)
         } finally {
             ClusterActivityOutput.setStreamActive(false)

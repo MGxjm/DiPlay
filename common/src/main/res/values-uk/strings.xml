@@ -418,6 +418,7 @@
     <string name="your_phone_your_drive">ВАШ ТЕЛЕФОН. ВАША ПОЇЗДКА.</string>
     <string name="your_report_was_saved_to_the_selected_location">Звіт збережено у вибраному місці.</string>
     <string name="cluster_waiting_for_map">DiPlay · очікування карти CarPlay</string>
+    <string name="cluster_open_vehicle_projection_mode">Екран проєкції панелі приладів не знайдено. Увімкніть режим проєкції в автомобілі; DiPlay під’єднається автоматично, коли екран з’явиться.</string>
     <string name="option_size_large">Великий</string>
     <string name="option_size_medium">Середній</string>
     <string name="option_size_small">Малий</string>

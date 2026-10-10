@@ -40,4 +40,15 @@ class AdbClusterRouterTest {
         assertNull(AdbClusterRouter.activityDisplay("ResumedActivity: $record", pkg, 12))
         assertNull(AdbClusterRouter.activityDisplay(dump.replace(pkg, "other.package"), pkg, 12))
     }
+
+    @Test fun detectsWhetherTheExactDiPlayTaskIsTopOnItsDisplay() {
+        val pkg = "com.shihab.diplay.hudtest"
+        val top = "    * Hist #0: ActivityRecord{abc u0 $pkg/com.shilapi.xcertplay.AdbClusterActivity t12}"
+        val covered = "    * Hist #0: ActivityRecord{def u0 com.byd.automap/com.byd.automap.activity.MainActivity t44}\n" +
+            "    * Hist #1: ActivityRecord{abc u0 $pkg/com.shilapi.xcertplay.AdbClusterActivity t12}"
+        assertEquals(true, AdbClusterRouter.activityIsTop("Display #7 (activities from top to bottom):\n$top", pkg, 12, 7))
+        assertEquals(false, AdbClusterRouter.activityIsTop("Display #7 (activities from top to bottom):\n$covered", pkg, 12, 7))
+        assertNull(AdbClusterRouter.activityIsTop("Display #8 (activities from top to bottom):\n$top", pkg, 12, 7))
+        assertNull(AdbClusterRouter.activityIsTop("Activity dump format changed", pkg, 12, 7))
+    }
 }
