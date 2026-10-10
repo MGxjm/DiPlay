@@ -142,22 +142,22 @@ Different signing keys cannot update the same installed application.
 ### Build and download a standalone APK with GitHub Actions
 
 The manual [standalone APK workflow](../.github/workflows/build-standalone.yml)
-reads two base64-encoded repository Actions secrets and writes the decoded files
-only under the runner's temporary directory:
+reads one base64-encoded repository Actions secret and unpacks the files only
+under the runner's temporary directory. The ZIP must contain only
+`offline-mfi/identity.pk8` and `offline-mfi/certificate.p7b` (an optional
+`offline-mfi/` directory entry is allowed).
 
-- `DIPLAY_IDENTITY_PK8_BASE64`: the bytes of `identity.pk8`, encoded as one base64 line.
-- `DIPLAY_CERTIFICATE_P7B_BASE64`: the bytes of `certificate.p7b`, encoded as one base64 line.
-
-Create each value locally without adding the files to the repository. On macOS:
+Create the secret value locally without adding or extracting the ZIP in the
+repository. On macOS, from the directory containing `offline-mfi.zip`:
 
 ```sh
-base64 -i runtime-assets/offline-mfi/identity.pk8 | tr -d '\n'
-base64 -i runtime-assets/offline-mfi/certificate.p7b | tr -d '\n'
+base64 -i offline-mfi.zip | tr -d '\n'
 ```
 
-Add each output under **Repository → Settings → Secrets and variables → Actions**
-using the exact names above. Do not put these values in workflow inputs, source,
-issues, or chat. Then run **Actions → Build standalone DiPlay APK → Run workflow**.
+Add the output under **Repository → Settings → Secrets and variables → Actions**
+with the exact name `DIPLAY_OFFLINE_MFI_ZIP_BASE64`. Do not put the encoded value
+in workflow inputs, source, issues, or chat. Then run
+**Actions → Build standalone DiPlay APK → Run workflow**.
 After it succeeds, download `DiPlay-standalone-<commit>` from that run's **Artifacts**.
 The artifact expires after three days. It is a debug APK (`com.shihab.diplay.hudtest`)
 signed with that runner's debug key; an existing install with a different signer

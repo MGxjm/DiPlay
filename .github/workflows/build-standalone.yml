@@ -24,20 +24,30 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Provision runtime authentication assets
         env:
-          DIPLAY_IDENTITY_PK8_BASE64: ${{ secrets.DIPLAY_IDENTITY_PK8_BASE64 }}
-          DIPLAY_CERTIFICATE_P7B_BASE64: ${{ secrets.DIPLAY_CERTIFICATE_P7B_BASE64 }}
+          DIPLAY_OFFLINE_MFI_ZIP_BASE64: ${{ secrets.DIPLAY_OFFLINE_MFI_ZIP_BASE64 }}
         shell: bash
         run: |
           set -euo pipefail
           umask 077
-          if [[ -z "$DIPLAY_IDENTITY_PK8_BASE64" || -z "$DIPLAY_CERTIFICATE_P7B_BASE64" ]]; then
-            echo 'Configure DIPLAY_IDENTITY_PK8_BASE64 and DIPLAY_CERTIFICATE_P7B_BASE64 in repository Actions secrets.' >&2
+          if [[ -z "$DIPLAY_OFFLINE_MFI_ZIP_BASE64" ]]; then
+            echo 'Configure DIPLAY_OFFLINE_MFI_ZIP_BASE64 in repository Actions secrets.' >&2
             exit 1
           fi
+          zip_file="$RUNNER_TEMP/offline-mfi.zip"
+          printf '%s' "$DIPLAY_OFFLINE_MFI_ZIP_BASE64" | base64 --decode > "$zip_file"
+          mapfile -t archive_entries < <(unzip -Z1 "$zip_file")
+          for entry in "${archive_entries[@]}"; do
+            case "$entry" in
+              offline-mfi/|offline-mfi/identity.pk8|offline-mfi/certificate.p7b) ;;
+              *) echo 'The authentication archive contains an unexpected path.' >&2; exit 1 ;;
+            esac
+          done
+          printf '%s\n' "${archive_entries[@]}" | grep -Fxq 'offline-mfi/identity.pk8'
+          printf '%s\n' "${archive_entries[@]}" | grep -Fxq 'offline-mfi/certificate.p7b'
           auth_dir="$RUNNER_TEMP/diplay-auth-assets"
-          mkdir -p "$auth_dir/offline-mfi"
-          printf '%s' "$DIPLAY_IDENTITY_PK8_BASE64" | base64 --decode > "$auth_dir/offline-mfi/identity.pk8"
-          printf '%s' "$DIPLAY_CERTIFICATE_P7B_BASE64" | base64 --decode > "$auth_dir/offline-mfi/certificate.p7b"
+          mkdir -p "$auth_dir"
+          unzip -q "$zip_file" -d "$auth_dir"
+          rm -f "$zip_file"
           test -s "$auth_dir/offline-mfi/identity.pk8"
           test -s "$auth_dir/offline-mfi/certificate.p7b"
           echo "DIPLAY_AUTH_ASSETS_DIR=$auth_dir" >> "$GITHUB_ENV"
