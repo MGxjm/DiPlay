@@ -130,6 +130,14 @@ DIPLAY_AUTH_ASSETS_DIR=/absolute/path/to/runtime-assets ./gradlew :mobile:assemb
 
 The task stops if either required file is absent or empty.
 Its APK output is `mobile/build/outputs/apk/debug/mobile-debug.apk`.
+To use the separate daming test identity locally, add `-PdiplayDebugBrand=daming`:
+
+```sh
+DIPLAY_AUTH_ASSETS_DIR=/absolute/path/to/runtime-assets ./gradlew -PdiplayDebugBrand=daming :mobile:assembleStandaloneDebug
+```
+
+That variant uses application ID `com.shihab.diplay.daming`, version `0.2.15-daming`,
+and launcher name `DiPlay daming`. Ordinary debug builds retain the `hudtest` suffix.
 Check both files in the APK against your selected local inputs:
 
 - `assets/offline-mfi/identity.pk8`.
@@ -157,11 +165,13 @@ base64 -i offline-mfi.zip | tr -d '\n'
 Add the output under **Repository → Settings → Secrets and variables → Actions**
 with the exact name `DIPLAY_OFFLINE_MFI_ZIP_BASE64`. Do not put the encoded value
 in workflow inputs, source, issues, or chat. Then run
-**Actions → Build standalone DiPlay APK → Run workflow**.
-After it succeeds, download `DiPlay-standalone-<commit>` from that run's **Artifacts**.
-The artifact expires after three days. It is a debug APK (`com.shihab.diplay.hudtest`)
-signed with that runner's debug key; an existing install with a different signer
-must be removed before installing it.
+**Actions → Build standalone DiPlay daming APK → Run workflow**.
+After it succeeds, download `DiPlay-daming-standalone-<commit>` from that run's **Artifacts**.
+The artifact expires after three days and contains `DiPlay-daming-standalone.apk`.
+It uses application ID `com.shihab.diplay.daming`, version `0.2.15-daming`, and
+launcher name `DiPlay daming`. It is signed with that runner's debug key; remove
+an earlier daming build before installing a build signed by another runner. The
+older `hudtest` package has a different application ID and can remain installed.
 
 The APK embeds the supplied experimental identity, including its private key.
 The repository is public, so treat the artifact and anyone able to download it as

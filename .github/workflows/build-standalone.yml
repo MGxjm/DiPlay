@@ -1,4 +1,4 @@
-name: Build standalone DiPlay APK
+name: Build standalone DiPlay daming APK
 
 on:
   workflow_dispatch:
@@ -52,26 +52,37 @@ jobs:
           test -s "$auth_dir/offline-mfi/certificate.p7b"
           echo "DIPLAY_AUTH_ASSETS_DIR=$auth_dir" >> "$GITHUB_ENV"
       - name: Test, lint and build standalone APK
-        run: ./gradlew :shared:testDebugUnitTest :common:testDebugUnitTest :mobile:lintDebug :mobile:assembleStandaloneDebug --stacktrace
+        run: ./gradlew -PdiplayDebugBrand=daming :shared:testDebugUnitTest :common:testDebugUnitTest :mobile:lintDebug :mobile:assembleStandaloneDebug --stacktrace
       - name: Verify APK authentication entries and record digest
         shell: bash
         run: |
           set -euo pipefail
           apk='mobile/build/outputs/apk/debug/mobile-debug.apk'
+          app_id="$($ANDROID_HOME/build-tools/36.0.0/aapt dump badging "$apk" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
+          app_label="$($ANDROID_HOME/build-tools/36.0.0/aapt dump badging "$apk" | sed -n "s/^application-label:'\(.*\)'$/\1/p" | head -n 1)"
+          version_name="$($ANDROID_HOME/build-tools/36.0.0/aapt dump badging "$apk" | sed -n "s/^package:.*versionName='\([^']*\)'.*/\1/p")"
+          test "$app_id" = 'com.shihab.diplay.daming'
+          test "$app_label" = 'DiPlay daming'
+          test "$version_name" = '0.2.15-daming'
           unzip -Z1 "$apk" | grep -Fx 'assets/offline-mfi/identity.pk8'
           unzip -Z1 "$apk" | grep -Fx 'assets/offline-mfi/certificate.p7b'
           digest="$(sha256sum "$apk" | cut -d' ' -f1)"
+          release_apk='mobile/build/outputs/apk/debug/DiPlay-daming-standalone.apk'
+          cp "$apk" "$release_apk"
           {
-            echo '### Standalone APK'
+            echo '### Daming standalone APK'
             echo
-            echo "File: \`mobile-debug.apk\`"
+            echo "Package: \`$app_id\`"
+            echo "Display name: \`$app_label\`"
+            echo "Version: \`$version_name\`"
+            echo "File: \`DiPlay-daming-standalone.apk\`"
             echo "SHA-256: \`$digest\`"
             echo
             echo 'This APK embeds the supplied experimental identity. Treat the artifact as public and extractable.'
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
-          name: DiPlay-standalone-${{ github.sha }}
-          path: mobile/build/outputs/apk/debug/mobile-debug.apk
+          name: DiPlay-daming-standalone-${{ github.sha }}
+          path: mobile/build/outputs/apk/debug/DiPlay-daming-standalone.apk
           if-no-files-found: error
           retention-days: 3

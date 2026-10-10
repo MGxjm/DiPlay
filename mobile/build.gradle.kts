@@ -6,6 +6,10 @@ plugins {
 // Optional local-only input. CI and ordinary source builds contain no accessory identity.
 val localAuthenticationAssets = providers.environmentVariable("DIPLAY_AUTH_ASSETS_DIR")
     .orNull?.let { file(it).canonicalFile }
+val debugBrand = providers.gradleProperty("diplayDebugBrand").orNull
+require(debugBrand == null || debugBrand == "daming") {
+    "Only the explicit 'daming' debug brand is supported."
+}
 
 android {
     namespace = "com.shilapi.xcertplay"
@@ -19,6 +23,7 @@ android {
         targetSdk = 37
         versionCode = 34
         versionName = "0.2.15"
+        manifestPlaceholders["applicationLabel"] = "@string/app_name"
 
     }
 
@@ -39,8 +44,15 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".hudtest"
-            versionNameSuffix = "-hud-test"
+            manifestPlaceholders["applicationLabel"] = "DiPlay HUD Test"
+            if (debugBrand == "daming") {
+                applicationIdSuffix = ".daming"
+                versionNameSuffix = "-daming"
+                manifestPlaceholders["applicationLabel"] = "DiPlay daming"
+            } else {
+                applicationIdSuffix = ".hudtest"
+                versionNameSuffix = "-hud-test"
+            }
         }
         release {
             optimization {
