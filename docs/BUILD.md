@@ -166,6 +166,8 @@ Add the output under **Repository → Settings → Secrets and variables → Act
 with the exact name `DIPLAY_OFFLINE_MFI_ZIP_BASE64`. Do not put the encoded value
 in workflow inputs, source, issues, or chat. Then run
 **Actions → Build standalone DiPlay daming APK → Run workflow**.
+Leave **Run all unit tests and lint** unchecked for the fast APK-only build; enable
+it when you want the slower full verification.
 After it succeeds, download `DiPlay-daming-standalone-<commit>` from that run's **Artifacts**.
 The artifact expires after three days and contains `DiPlay-daming-standalone.apk`.
 It uses application ID `com.shihab.diplay.daming`, version `0.2.15-daming`, and

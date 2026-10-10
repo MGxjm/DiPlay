@@ -2,6 +2,12 @@ name: Build standalone DiPlay daming APK
 
 on:
   workflow_dispatch:
+    inputs:
+      full_checks:
+        description: Run all unit tests and lint before building (slower)
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -51,8 +57,11 @@ jobs:
           test -s "$auth_dir/offline-mfi/identity.pk8"
           test -s "$auth_dir/offline-mfi/certificate.p7b"
           echo "DIPLAY_AUTH_ASSETS_DIR=$auth_dir" >> "$GITHUB_ENV"
-      - name: Test, lint and build standalone APK
-        run: ./gradlew -PdiplayDebugBrand=daming :shared:testDebugUnitTest :common:testDebugUnitTest :mobile:lintDebug :mobile:assembleStandaloneDebug --stacktrace
+      - name: Full tests and lint (optional)
+        if: ${{ inputs.full_checks }}
+        run: ./gradlew :shared:testDebugUnitTest :common:testDebugUnitTest :mobile:lintDebug --stacktrace
+      - name: Build standalone APK
+        run: ./gradlew -PdiplayDebugBrand=daming :mobile:assembleStandaloneDebug --stacktrace
       - name: Verify APK authentication entries and record digest
         shell: bash
         run: |
