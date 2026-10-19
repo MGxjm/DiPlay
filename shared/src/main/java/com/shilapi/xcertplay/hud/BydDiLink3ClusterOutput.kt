@@ -6,7 +6,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** DiLink 3 cluster modes have their own recovery journal; OEM package holds are independent. */
+/** DiLink 3 cluster modes have their own recovery journal, restored before any new output. */
 internal object BydDiLink3ClusterOutput {
     private const val TAG = "DiPlay-BYD-DiLink3"
     private const val JOURNAL = "restore_stock_mode"
@@ -37,18 +37,22 @@ internal object BydDiLink3ClusterOutput {
     }
 
     fun prepareDisplay(appContext: Context, displayPresent: () -> Boolean) {
-        if (adbClusterRouteSelected(appContext)) return
         initialize(appContext)
         worker.execute {
             val app = context ?: return@execute
-            if (adbClusterRouteSelected(app)) return@execute
+            // On DiLink 4 the stock map owns the panel and DisplayManager hides it: an existing
+            // fission_* panel must be reused via the ADB route, never created a second time.
+            val present = { displayPresent() || virtualDisplayOnShell(app) }
             val prepared = runCatching {
-                state(app).prepareDisplay(displayPresent, { desiredMode },
+                state(app).prepareDisplay(present, { desiredMode },
                     { BydOutputSettings.enabled(app) }, { Thread.sleep(3_000L) })
             }.onFailure { Log.w(TAG, "Cluster preparation will recover", it) }.getOrDefault(false)
             Log.i(TAG, "DiLink 3 cluster display prepared=$prepared")
         }
     }
+
+    private fun virtualDisplayOnShell(app: Context): Boolean =
+        BydVirtualDisplay.parse(shell.run(app, "dumpsys display").orEmpty()) != null
 
     private fun initialize(appContext: Context) {
         context = appContext.applicationContext
@@ -72,10 +76,6 @@ internal object BydDiLink3ClusterOutput {
 
     private fun applyLatest() {
         val app = context ?: return
-        // The ADB route uses the native casting mode selected by the driver. The AMap
-        // package name alone does not prove this is a DiLink 3 head unit. Keep any
-        // old recovery journal pending rather than closing DiLink 4 casting.
-        if (adbClusterRouteSelected(app)) return
         runCatching { state(app).apply(desiredMode) }
             .onFailure { Log.w(TAG, "Cluster mode will retry", it) }
             .onSuccess { accepted -> if (!accepted) Log.w(TAG, "Cluster mode pending recovery/retry") }
@@ -89,22 +89,12 @@ internal object BydDiLink3ClusterOutput {
             edit.commit()
         }
         return DiLink3ClusterModeSession(
-            run = { command ->
-                if (adbClusterRouteSelected(app)) null else shell.run(app, command)
-            },
+            run = { command -> shell.run(app, command) },
             loadRecovery = { journal.pending },
             saveRecovery = journal::save,
-            projectionStillWanted = {
-                desiredMode == BydDiLink3ClusterMode.Mode.PROJECTION && !adbClusterRouteSelected(app)
-            },
+            projectionStillWanted = { desiredMode == BydDiLink3ClusterMode.Mode.PROJECTION },
         ).also { session = it }
     }
-
-    internal fun adbClusterRouteSelected(context: Context): Boolean =
-        context.getSharedPreferences("xcertplay_airplay", Context.MODE_PRIVATE).let {
-            it.getBoolean("adb_cluster_activity_enabled", false) ||
-                it.getBoolean("platform21_cluster_enabled", false)
-        }
 
     private fun prefs(context: Context) = context.getSharedPreferences("diplay_dilink3_cluster", Context.MODE_PRIVATE)
 }

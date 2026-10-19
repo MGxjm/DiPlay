@@ -24,7 +24,6 @@ object BydOutputSettings {
     private const val KEY_PHONE_AUDIO_ROUTE = "phone_audio_route_experimental"
     private const val KEY_PHONE_AUDIO_ROUTE_APPS = "phone_audio_route_apps_experimental"
     private const val KEY_FCE_CLUSTER = "fce_cluster_guidance_experimental"
-    private const val KEY_OEM_CLUSTER_HOLD = "oem_cluster_hold"
     private const val KEY_LEGACY_VEHICLE_PROBE = "legacy_vehicle_probe"
     const val DEFAULT_LOW_CHARGE_PERCENT = 20
     val lowChargePresets = listOf(10, 15, 20, 25, 30)
@@ -142,16 +141,6 @@ object BydOutputSettings {
     fun hudSong(context: Context): Boolean = prefs(context).getBoolean(KEY_HUD_SONG, false)
     fun setHudSong(context: Context, enabled: Boolean) =
         prefs(context).edit().putBoolean(KEY_HUD_SONG, enabled).apply()
-
-    /** OEM changes require an explicit selection; fresh installations leave the stock map alone. */
-    fun oemClusterHold(context: Context): BydOemClusterHold {
-        val settings = prefs(context)
-        BydOemClusterHold.fromName(settings.getString(KEY_OEM_CLUSTER_HOLD, null))?.let { return it }
-        return if (settings.getBoolean("oem_cluster_freeze", false)) BydOemClusterHold.PACKAGE
-            else BydOemClusterHold.OFF
-    }
-    fun setOemClusterHold(context: Context, hold: BydOemClusterHold) =
-        prefs(context).edit().putString(KEY_OEM_CLUSTER_HOLD, hold.name).apply()
 
     /** At or below this charge the iPhone gets the low-range warning. */
     fun lowChargePercent(context: Context): Int = prefs(context).getInt(KEY_LOW_CHARGE_PERCENT, DEFAULT_LOW_CHARGE_PERCENT)

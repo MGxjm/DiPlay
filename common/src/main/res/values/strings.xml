@@ -739,11 +739,6 @@
     <string name="cluster_safe_area_reset">Reset cluster safe area</string>
     <string name="cluster_safe_area_hint">Drag the four green boundaries. Saving applies to the next CarPlay connection. A custom box replaces marker offsets; reset restores them.</string>
     <string name="cluster_safe_area_live_hint">Drag the green edges here and watch the outline on the cluster. Save applies the layout after reconnecting; Cancel keeps your current box.</string>
-    <string name="oem_cluster_map">Hide the car’s own cluster map</string>
-    <string name="oem_cluster_map_description">Optional: keep the stock map off the cluster while DiPlay projects there. Off leaves it alone. Component mode hides its cluster projection; package mode disables the whole stock map until projection stops. Requires authorized local ADB. Changes apply after reconnecting.</string>
-    <string name="oem_cluster_hold_off">Off</string>
-    <string name="oem_cluster_hold_component">Hide only its cluster projection</string>
-    <string name="oem_cluster_hold_package">Disable the whole stock map</string>
     <string name="song_on_hud">Song or lyrics on the HUD</string>
     <string name="song_on_hud_description">Show the title or lyrics supplied by the phone while no navigation guidance is active. Navigation directions and road names take priority.</string>
     <string name="hotspot_network_not_ready">Hotspot network is not ready</string>
@@ -911,8 +906,6 @@
     <string name="setup_iphone_none">No iPhone chosen yet</string>
     <string name="setup_features_title">Features</string>
     <string name="setup_features_description">Suggested for %1$s. Turn on what you want now; everything stays in Settings and can be changed later.</string>
-    <string name="setup_cluster_route_conflict">The DiLink 4 cluster route is on. On DiLink 3 it stops the CarPlay map on the dashboard.</string>
-    <string name="setup_cluster_route_turn_off">Turn it off</string>
     <string name="setup_badge_tested">Tested on some cars</string>
     <string name="setup_badge_experimental">Experimental</string>
     <string name="setup_badge_adb">Needs ADB over network</string>

@@ -306,8 +306,8 @@ attempts projection-off immediately. A failed restoration stays pending and retr
 using already approved local ADB; reopening DiPlay also recovers an interrupted
 output even when navigation output has since been disabled. A new mode waits for
 that recovery. Android cannot guarantee restoration before force-stop; recovery
-runs after the app opens again. This journal does not change the stock-map package
-hold or the verified windshield HUD receiver checks.
+runs after the app opens again. This journal does not change the verified
+windshield HUD receiver checks.
 
 Before releasing DiLink 3 support, retest on the car: first display creation after
 boot, guidance-only mode, map priority over guidance, normal disconnect, temporary

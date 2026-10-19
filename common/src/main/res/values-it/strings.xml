@@ -717,11 +717,6 @@
     <string name="cluster_safe_area_reset">Reimposta l’area sicura del quadro strumenti</string>
     <string name="cluster_safe_area_hint">Trascina i quattro bordi verdi. Il salvataggio si applica alla prossima connessione CarPlay. Un riquadro personalizzato sostituisce gli scostamenti dell’indicatore; reimposta per ripristinarli.</string>
     <string name="cluster_safe_area_live_hint">Trascina qui i bordi verdi e osserva il contorno sul quadro strumenti. Salva applica il layout dopo la riconnessione; Annulla mantiene il riquadro attuale.</string>
-    <string name="oem_cluster_map">Nascondi la mappa originale dell’auto sul quadro strumenti</string>
-    <string name="oem_cluster_map_description">Facoltativo: tiene la mappa originale fuori dal quadro strumenti mentre DiPlay proietta lì. Disattivato la lascia com’è. La modalità componente nasconde la sua proiezione sul quadro strumenti; la modalità pacchetto disattiva l’intera mappa originale finché la proiezione non si ferma. Richiede ADB locale autorizzato. Le modifiche si applicano dopo la riconnessione.</string>
-    <string name="oem_cluster_hold_off">Disattivato</string>
-    <string name="oem_cluster_hold_component">Nascondi solo la sua proiezione sul quadro strumenti</string>
-    <string name="oem_cluster_hold_package">Disattiva l’intera mappa originale</string>
     <string name="song_on_hud">Brano o testo sull’HUD</string>
     <string name="song_on_hud_description">Mostra il titolo o il testo forniti dal telefono quando non c’è nessuna indicazione di navigazione attiva. Le indicazioni di navigazione e i nomi delle strade hanno la priorità.</string>
     <string name="hotspot_network_not_ready">La rete dell’hotspot non è pronta</string>
@@ -885,8 +880,6 @@
     <string name="setup_iphone_none">Nessun iPhone ancora scelto</string>
     <string name="setup_features_title">Funzioni</string>
     <string name="setup_features_description">Suggerite per %1$s. Attiva ora quelle che vuoi; tutto resta nelle Impostazioni e può essere cambiato in seguito.</string>
-    <string name="setup_cluster_route_conflict">L’instradamento sul quadro strumenti DiLink 4 è attivo. Su DiLink 3 ferma la mappa di CarPlay sul cruscotto.</string>
-    <string name="setup_cluster_route_turn_off">Disattivalo</string>
     <string name="setup_badge_tested">Testato su alcune auto</string>
     <string name="setup_badge_experimental">Sperimentale</string>
     <string name="setup_badge_adb">Richiede ADB via rete</string>

@@ -29,7 +29,6 @@ internal class ClusterCalibrationRouteTest {
         AirPlayPersistence.saveAdbClusterEnabled(app, true)
         Router.started = CountDownLatch(1)
         Router.token = null
-        Router.holdStockMap = true
     }
 
     @After fun cleanup() { ClusterActivityOutput.stopForSettings(); previewHosts.clear() }
@@ -38,7 +37,6 @@ internal class ClusterCalibrationRouteTest {
         val host = Robolectric.buildActivity(Activity::class.java).get().also(previewHosts::add)
         ClusterActivityOutput.beginSafeAreaPreview(owner, rect, host)
         assertTrue("Preview routing did not start", Router.started.await(5, TimeUnit.SECONDS))
-        assertFalse("Calibration must not disable the stock map", Router.holdStockMap)
         return Router.token!!
     }
 
@@ -100,10 +98,9 @@ internal class ClusterCalibrationRouteTest {
 
     @Implements(AdbClusterRouter::class, isInAndroidSdk = false)
     class Router {
-        @Implementation fun launch(context: Context, token: String, holdStockMap: Boolean,
+        @Implementation fun launch(context: Context, token: String,
             prepare: (Int) -> Boolean): AdbClusterRouter.Result {
             Companion.token = token
-            Companion.holdStockMap = holdStockMap
             val accepted = prepare(7)
             started.countDown()
             return AdbClusterRouter.Result(accepted, "test route")
@@ -111,7 +108,6 @@ internal class ClusterCalibrationRouteTest {
         companion object {
             var started = CountDownLatch(1)
             var token: String? = null
-            var holdStockMap = true
         }
     }
 }

@@ -179,11 +179,10 @@ internal object BydClusterBridge {
         BydDiLink3ClusterOutput.prepareDisplay(appContext) { projectionDisplayPresent(appContext) }
     }
 
+    /** The name prefix identifies the panel on every controller firmware; the shell sees it even where DisplayManager hides it. */
     private fun projectionDisplayPresent(appContext: Context): Boolean =
         appContext.getSystemService(android.hardware.display.DisplayManager::class.java)
-            ?.displays?.any { it.name == DILINK3_DISPLAY } == true
-
-    private const val DILINK3_DISPLAY = "fission_bg_xdjaVirtualSurface"
+            ?.displays?.any { BydVirtualDisplay.named(it.name) } == true
 
     private fun installed(appContext: Context, packageName: String): Boolean = try {
         appContext.packageManager.getPackageInfo(packageName, 0)
