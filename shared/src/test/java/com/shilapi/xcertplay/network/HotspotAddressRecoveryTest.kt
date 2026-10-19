@@ -56,6 +56,31 @@ class HotspotAddressRecoveryTest {
         assertEquals(0, polls)
     }
 
+    @Test fun defaultPreferenceWaitsForIpv4BeforeSettlingForLinkLocal() {
+        // A link-local is always present first; settling for it advertises an endpoint the iPhone
+        // cannot reach while the hotspot is still assigning its IPv4.
+        live = listOf(ipv6)
+        val next = recovery(afterPause = { if (now >= 500) live = listOf(ipv4, ipv6) })
+        val candidates = next.awaitCandidates(live, null)
+        assertEquals(500L, now)
+        assertEquals(ipv4, HotspotAddressPolicy.select(candidates, null))
+    }
+
+    @Test fun missingIpv4HasABoundedWaitAndKeepsTheLinkLocalFallback() {
+        live = listOf(ipv6)
+        val candidates = recovery().awaitCandidates(live, null)
+        assertEquals(WirelessStartupPolicy.HOTSPOT_READY_MILLIS, now)
+        assertEquals(ipv6, HotspotAddressPolicy.select(candidates, null))
+    }
+
+    @Test fun anInterfaceThatStartsAddresslessAcceptsIpv4WhenItAppears() {
+        live = emptyList()
+        val next = recovery(afterPause = { if (now >= 250) live = listOf(ipv4) })
+        val candidates = next.awaitCandidates(live, null)
+        assertEquals(250L, now)
+        assertEquals(ipv4, HotspotAddressPolicy.select(candidates, null))
+    }
+
     @Test fun missingPreferredIpv6HasABoundedWaitAndKeepsTheIpv4Fallback() {
         val candidates = recovery().awaitCandidates(live, HotspotAddressPolicy.FAMILY_IPV6)
         assertEquals(WirelessStartupPolicy.HOTSPOT_READY_MILLIS, now)

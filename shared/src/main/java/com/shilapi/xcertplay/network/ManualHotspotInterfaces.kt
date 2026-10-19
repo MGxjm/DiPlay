@@ -102,7 +102,7 @@ internal class ManualHotspotInterfaces(
 
     /**
      * Interfaces that plausibly carry a hotspot the platform will not name: up, not wireless, not
-     * an upstream, not the default route, and holding an address a hotspot would publish. The
+     * an upstream, not the default route, and holding a usable IPv4 (see [hotspotCarrierEvidence]). The
      * reference vendor interface wins over an inferred one, so the pick stays deterministic on
      * firmware where several VLANs share one address.
      */
@@ -115,7 +115,7 @@ internal class ManualHotspotInterfaces(
             iface.up && iface.index > 0 && !iface.wireless &&
                 iface.name !in upstreams && iface.name != defaultInterface &&
                 iface.name !in EXCLUDED_INTERFACES &&
-                iface.addresses.any(::publishesHotspotAddress)
+                iface.addresses.any(::hotspotCarrierEvidence)
         }.map { it.name }
         if (eligible.isEmpty()) return emptySet()
         if (DEFAULT_CAR_HOTSPOT_INTERFACE in eligible) return setOf(DEFAULT_CAR_HOTSPOT_INTERFACE)
@@ -180,6 +180,15 @@ internal fun publishesHotspotAddress(address: java.net.InetAddress): Boolean = w
     is Inet6Address -> address.isLinkLocalAddress
     else -> false
 }
+
+/**
+ * Evidence for inferring an unlabelled interface as the hotspot carrier (#573): a usable IPv4
+ * only. Every up IPv6 interface holds a link-local, so link-local alone would qualify plumbing
+ * VLANs whose only address the iPhone cannot reach; it still counts as a publishable address on
+ * interfaces the platform already named as the hotspot.
+ */
+internal fun hotspotCarrierEvidence(address: java.net.InetAddress): Boolean =
+    address is Inet4Address && publishesHotspotAddress(address)
 
 internal fun legacyHotspotInterfaces(tethered: List<String>, wifiRegexes: List<String>): Set<String>? {
     if (wifiRegexes.isEmpty()) return null
