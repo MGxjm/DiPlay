@@ -43,6 +43,8 @@ android {
             versionNameSuffix = "-hud-test"
         }
         release {
+            applicationIdSuffix = ".daming"
+            versionNameSuffix = "-daming"
             optimization {
                 enable = false
             }
