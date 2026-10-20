@@ -29,6 +29,7 @@ class DiLink3ClusterRecoveryTest {
     @Before fun setup() {
         drain()
         app.getSharedPreferences("xcertplay_airplay", 0).edit().clear().commit()
+        prefs.edit().clear().commit()
         Shell.commands.clear()
         Shell.response = { "Result: Parcel(00000000 00000000 '........')" }
         ReflectionHelpers.setField(output, "session", null)
@@ -75,33 +76,36 @@ class DiLink3ClusterRecoveryTest {
         assertFalse(prefs.contains("restore_stock_mode"))
     }
 
-    @Test fun adbRoutePreservesNativeCastingDuringPreparationMapAndCleanup() {
+    @Test fun existingVirtualPanelSkipsDisplayCreation() {
+        output.prepareDisplay(app) { true }
+        drain()
+        assertTrue(Shell.commands.isEmpty())
+    }
+
+    @Test fun aShellOnlyPanelAlsoSkipsDisplayCreation() {
+        // DiLink 4 keeps the panel out of DisplayManager; the authorized shell still lists it.
+        Shell.response = { command ->
+            if (command == "dumpsys display")
+                "mBaseDisplayInfo=DisplayInfo{\"fission_bg_xdjaVirtualSurface, displayId 9\", real 1920 x 720, owner com.android.systemui (uid 1000)}"
+            else "Result: Parcel(00000000 00000000 '........')"
+        }
+        output.prepareDisplay(app) { false }
+        drain()
+        assertEquals(listOf("dumpsys display"), Shell.commands.toList())
+    }
+
+    @Test fun theModeSessionRunsEvenWithTheAdbRouteSelected() {
         app.getSharedPreferences("xcertplay_airplay", 0).edit()
             .putBoolean("adb_cluster_activity_enabled", true).commit()
-        output.prepareDisplay(app) { false }
         output.setDesired(app, mapShown = true, guidanceActive = false)
         drain()
         output.setDesired(app, mapShown = false, guidanceActive = true)
         drain()
         output.setDesired(app, mapShown = false, guidanceActive = false)
         drain()
-        assertTrue(Shell.commands.isEmpty())
-        assertFalse(prefs.contains("restore_stock_mode"))
-    }
-
-    @Test fun adbRouteDefersOldRecoveryWithoutDiscardingTheJournal() {
-        prefs.edit().putBoolean("restore_stock_mode", true).commit()
-        app.getSharedPreferences("xcertplay_airplay", 0).edit()
-            .putBoolean("adb_cluster_activity_enabled", true).commit()
-        output.restoreIfNeeded(app)
-        drain()
-        assertTrue(Shell.commands.isEmpty())
-        assertTrue(prefs.getBoolean("restore_stock_mode", false))
-        app.getSharedPreferences("xcertplay_airplay", 0).edit()
-            .putBoolean("adb_cluster_activity_enabled", false).commit()
-        output.restoreIfNeeded(app)
-        drain()
-        assertEquals(listOf(stock), Shell.commands.toList())
+        assertEquals(listOf(BydDiLink3ClusterMode.Mode.PROJECTION.entryCommand,
+            BydDiLink3ClusterMode.Mode.PROJECTION.command,
+            BydDiLink3ClusterMode.Mode.SIMPLE_NAVIGATION.command, stock), Shell.commands.toList())
         assertFalse(prefs.contains("restore_stock_mode"))
     }
 

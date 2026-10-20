@@ -8,7 +8,6 @@ object BydNavigationOutputs {
     /** Recover a journaled interrupted output when the app opens, even before a phone reconnects. */
     fun onAppOpened(context: Context) {
         BydBluetoothSuspend.onAppOpened(context)
-        BydOemClusterNavi.restoreIfNeeded(context)
         BydDiLink3ClusterOutput.restoreIfNeeded(context)
         com.shilapi.xcertplay.network.WifiScanPause.restoreIfNeeded(context)
         if (BydStandaloneHudOutput.available(context)) start(context)

@@ -92,7 +92,7 @@
     <string name="safe_area_mapping_summary">Безпечна область: %1$d x %2$d у точці (%3$d, %4$d) на екрані %5$d x %6$d</string>
     <string name="settings_android9_compat">Наведені нижче налаштування недоступні та приховані в Android 9 (API 28):\n• Wi-Fi P2P (5 ГГц) — натомість використовується LocalOnlyHotspot.\n• Програмний декодер HEVC — натомість використовується апаратне декодування.</string>
     <string name="settings_mfi_address_hint">Адреса має починатися з http:// або https://. Токен необов’язковий і надсилається як токен авторизації Bearer.</string>
-    <string name="app_name">DiPlay</string>
+    <string name="app_name">DiPlay DM</string>
     <string name="language_section_title">Мова</string>
     <string name="language_app_language">Мова застосунку</string>
     <string name="language_system_default">Мова системи</string>
@@ -757,8 +757,6 @@
     <string name="setup_iphone_none">iPhone ще не обрано</string>
     <string name="setup_features_title">Функції</string>
     <string name="setup_features_description">Рекомендовано для %1$s. Увімкніть потрібне зараз; усе залишається в налаштуваннях і може бути змінене пізніше.</string>
-    <string name="setup_cluster_route_conflict">Увімкнено маршрут панелі приладів DiLink 4. На DiLink 3 він заважає показу карти CarPlay на панелі приладів.</string>
-    <string name="setup_cluster_route_turn_off">Вимкнути</string>
     <string name="setup_badge_tested">Перевірено на деяких авто</string>
     <string name="setup_badge_experimental">Експериментально</string>
     <string name="setup_badge_adb">Потрібен ADB через мережу</string>

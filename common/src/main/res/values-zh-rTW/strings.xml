@@ -104,7 +104,7 @@
     <string name="allow_the_connection_permission_to_continue">請授予連線權限以繼續</string>
     <string name="an_independent_carplay_receiver_for_android_head_units_wir">專為 Android 車機打造的獨立 CarPlay 接收器。有線和無線連線均在車機上執行，並使用本機認證。一般 iPhone 無需越獄、Mac、轉接器或登入即可連線。\n\n此預覽版本使用實驗性配件識別資訊，目前仍在測試與不同 iPhone 和車機的相容性。本產品未經 Apple 認證。</string>
     <string name="android_9_compatibility">Android 9 相容性</string>
-    <string name="app_name">DiPlay</string>
+    <string name="app_name">DiPlay DM</string>
     <string name="app_permissions">App 權限</string>
     <string name="app_settings">App 設定</string>
     <string name="apply_and_reconnect">套用並重新連線</string>
@@ -681,11 +681,6 @@
     <string name="cluster_safe_area_reset">重設儀表安全區域</string>
     <string name="cluster_safe_area_hint">拖曳四條綠色邊界，儲存後在下次 CarPlay 連線時生效。自訂區域會替代車輛標記偏移，重設後恢復。</string>
     <string name="cluster_safe_area_live_hint">在此拖曳綠色邊界，儀表會同步顯示區域框。儲存後重新連線生效；取消保留目前區域。</string>
-    <string name="oem_cluster_map">隱藏原車儀表地圖</string>
-    <string name="oem_cluster_map_description">可選：DiPlay 投放期間暫停原車地圖的儀表投放。關閉時不修改原車地圖。組件模式只隱藏儀表投放，整套模式會停用整個原車地圖，停止投放後恢復原狀態。需要已授權的本機 ADB，重新連線後生效。</string>
-    <string name="oem_cluster_hold_off">關閉</string>
-    <string name="oem_cluster_hold_component">只隱藏儀表投放</string>
-    <string name="oem_cluster_hold_package">停用整個原車地圖</string>
     <string name="song_on_hud">HUD 顯示歌曲名稱或歌詞</string>
     <string name="song_on_hud_description">無導航指引時顯示手機提供的歌曲名稱或歌詞，導航方向和道路名稱優先。</string>
     <string name="hotspot_network_not_ready">熱點網路未就緒</string>
@@ -809,8 +804,6 @@
     <string name="setup_iphone_none">尚未選擇 iPhone</string>
     <string name="setup_features_title">功能</string>
     <string name="setup_features_description">為 %1$s 推薦。現在開啟你需要的功能；所有選項都保留在設定中，之後可隨時變更。</string>
-    <string name="setup_cluster_route_conflict">DiLink 4 儀表路線已開啟。在 DiLink 3 上，它會阻止 CarPlay 地圖顯示在儀表上。</string>
-    <string name="setup_cluster_route_turn_off">關閉它</string>
     <string name="setup_badge_tested">已在部分車輛上測試</string>
     <string name="setup_badge_experimental">實驗性</string>
     <string name="setup_badge_adb">需要網路 ADB</string>

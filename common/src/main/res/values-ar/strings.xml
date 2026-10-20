@@ -745,8 +745,6 @@
     <string name="setup_iphone_none">لم يتم اختيار iPhone بعد</string>
     <string name="setup_features_title">الميزات</string>
     <string name="setup_features_description">مقترحة لـ %1$s. فعّل ما تريده الآن؛ تبقى كل الخيارات في الإعدادات ويمكن تغييرها لاحقاً.</string>
-    <string name="setup_cluster_route_conflict">مسار لوحة العدادات الخاص بـ DiLink 4 مفعّل. في DiLink 3 يمنع ظهور خريطة CarPlay على لوحة العدادات.</string>
-    <string name="setup_cluster_route_turn_off">إيقافه</string>
     <string name="setup_badge_tested">تم اختباره على بعض السيارات</string>
     <string name="setup_badge_experimental">تجريبي</string>
     <string name="setup_badge_adb">يتطلب ADB عبر الشبكة</string>
@@ -899,11 +897,6 @@
     <string name="cluster_safe_area_reset">إعادة ضبط المنطقة الآمنة لشاشة العدادات</string>
     <string name="cluster_safe_area_hint">اسحب الحدود الخضراء الأربعة. يُطبَّق الحفظ عند اتصال CarPlay التالي. يحل الإطار المخصّص محل إزاحات العلامات؛ وتعيدها إعادة الضبط.</string>
     <string name="cluster_safe_area_live_hint">اسحب الحواف الخضراء هنا وراقب الإطار على شاشة العدادات. يُطبَّق التخطيط المحفوظ بعد إعادة الاتصال؛ ويحافظ الإلغاء على إطارك الحالي.</string>
-    <string name="oem_cluster_map">إخفاء خريطة السيارة الأصلية من شاشة العدادات</string>
-    <string name="oem_cluster_map_description">اختياري: إبقاء الخريطة الأصلية مخفية عن شاشة العدادات أثناء عرض DiPlay عليها. لا يغيّر خيار الإيقاف شيئًا. يُخفي وضع المكوّن عرضها على شاشة العدادات فقط؛ ويعطّل وضع الحزمة تطبيق الخريطة الأصلي بالكامل حتى يتوقف العرض. يتطلب تفويض ADB المحلي. تُطبَّق التغييرات بعد إعادة الاتصال.</string>
-    <string name="oem_cluster_hold_off">إيقاف</string>
-    <string name="oem_cluster_hold_component">إخفاء عرضها على شاشة العدادات فقط</string>
-    <string name="oem_cluster_hold_package">تعطيل تطبيق الخريطة الأصلي بالكامل</string>
     <string name="song_on_hud">الأغنية أو كلماتها على شاشة HUD</string>
     <string name="song_on_hud_description">عرض العنوان أو الكلمات التي يرسلها الهاتف عند عدم وجود إرشادات ملاحة نشطة. تُعطى الأولوية لاتجاهات الملاحة وأسماء الطرق.</string>
     <string name="hotspot_network_not_ready">شبكة نقطة الاتصال غير جاهزة</string>

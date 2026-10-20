@@ -1,9 +1,7 @@
 package com.shilapi.xcertplay
 
-import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -17,12 +15,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.annotation.Config
 import org.robolectric.util.ReflectionHelpers
 
-/** On DiLink 3 either DiLink 4 cluster route stops the dashboard map, and Platform 21 had no warning (#722). */
+/** The DiLink 4 ADB cluster switch is DiLink 4 only; no warning is shown on DiLink 3. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [29], qualifiers = "en", manifest = Config.NONE)
 class DiLink3ClusterRouteSettingsTest {
@@ -44,40 +41,27 @@ class DiLink3ClusterRouteSettingsTest {
         CarPlayBackgroundSession.clear()
     }
 
-    @Test fun platform21OnDiLink3ShowsTheWarningInsteadOfTheSwitchesAndTurningItOffClearsBoth() {
+    @Test fun adbRouteOnDiLink3OffersNoSwitchAndNoWarning() {
         DiLinkGeneration.save(activity, DiLinkGeneration.DILINK_3)
-        AirPlayPersistence.saveLegacyClusterEnabled(activity, true)
+        AirPlayPersistence.saveAdbClusterEnabled(activity, true)
         renderAdvanced()
 
-        assertFalse(hasText(R.string.platform21_cluster_mode))
         assertFalse(hasText(R.string.adb_cluster_activity_mode))
-        assertTrue(hasText(R.string.setup_cluster_route_conflict))
-        views(page).filterIsInstance<Button>().single { it.text == activity.getString(R.string.setup_cluster_route_turn_off) }
-            .performClick()
-        shadowOf(Looper.getMainLooper()).idle()
-
-        assertFalse(AirPlayPersistence.loadDiLink4ClusterRouteEnabled(activity))
-        assertFalse(AirPlayPersistence.loadLegacyClusterEnabled(activity))
-        assertFalse(AirPlayPersistence.loadAdbClusterEnabled(activity))
     }
 
-    @Test fun diLink3WithNeitherRouteOffersNeitherSwitch() {
+    @Test fun diLink3WithNoRouteOffersNoSwitch() {
         DiLinkGeneration.save(activity, DiLinkGeneration.DILINK_3)
         AirPlayPersistence.saveClusterMapEnabled(activity, true)
         renderAdvanced()
 
-        assertFalse(hasText(R.string.platform21_cluster_mode))
         assertFalse(hasText(R.string.adb_cluster_activity_mode))
-        assertFalse(hasText(R.string.setup_cluster_route_conflict))
     }
 
-    @Test fun diLink4KeepsBothSwitches() {
+    @Test fun diLink4KeepsTheAdbSwitch() {
         DiLinkGeneration.save(activity, DiLinkGeneration.DILINK_4)
         renderAdvanced()
 
-        assertTrue(hasText(R.string.platform21_cluster_mode))
         assertTrue(hasText(R.string.adb_cluster_activity_mode))
-        assertFalse(hasText(R.string.setup_cluster_route_conflict))
     }
 
     private fun renderAdvanced() {

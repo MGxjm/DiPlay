@@ -1189,7 +1189,9 @@ class CarPlayHostActivity : ComponentActivity() {
             clusterMonitor?.stop()
             clusterMonitor = null
         }
-        if (AirPlayPersistence.loadClusterSmallWindowMode(this) == CLUSTER_SMALL_WINDOW_AUTO) {
+        // Following the ADB navi mode also drives the DiLink 4 stock-map dismissal on mode changes.
+        if (AirPlayPersistence.loadClusterSmallWindowMode(this) == CLUSTER_SMALL_WINDOW_AUTO ||
+            AdbClusterRouter.enabled(this)) {
             com.shilapi.xcertplay.hud.BydNavigationOutputs.setClusterNaviModeListener { mode ->
                 mainHandler.post { onAdbNaviMode(mode) }
             }
@@ -1239,6 +1241,14 @@ class CarPlayHostActivity : ComponentActivity() {
         if (mode == previous) return
         adbNaviMode = mode
         appendLog("Cluster map: ADB navi mode=${mode?.label ?: "unknown"}")
+        // Entering Small/Full navi lets the stock map cover DiPlay's panel window; one BACK
+        // closes the stock map's projection Activity (DiPlay's own is not focusable).
+        if (AdbClusterRouter.stockMapCoversOnModeChange(previous, mode)) {
+            appendLog("Cluster map: sending BACK to the panel display")
+            AdbClusterRouter.dismissStockProjectionAsync(this) { message ->
+                mainHandler.post { appendLog("Cluster map: $message") }
+            }
+        }
         if (AirPlayPersistence.loadClusterSmallWindowMode(this) != CLUSTER_SMALL_WINDOW_AUTO) return
         if (mode == com.shilapi.xcertplay.hud.BydClusterNaviMode.SMALL ||
             mode == com.shilapi.xcertplay.hud.BydClusterNaviMode.FULL) {
@@ -1500,10 +1510,12 @@ class CarPlayHostActivity : ComponentActivity() {
         if (AdbClusterRouter.enabled(this) && ClusterActivityOutput.hasConfirmedRoute()) {
             adbClusterConfigured = true
             clusterStreamOnDisplay = true
+            val panel = AdbClusterRouter.streamSize()
             return DiLink4ClusterDisplay.streamConfig(AirPlayPersistence.loadClusterContent(this),
                 safeAreaRect = AirPlayPersistence.loadClusterSafeAreaRect(this),
                 markerXPercent = AirPlayPersistence.loadClusterMarkerXPercent(this),
-                markerYPercent = AirPlayPersistence.loadClusterMarkerYPercent(this)).also {
+                markerYPercent = AirPlayPersistence.loadClusterMarkerYPercent(this),
+                width = panel.first, height = panel.second).also {
                 MapMirrors.streamAspect = it.widthPixels.toDouble() / it.heightPixels
                 appendLog("Cluster activity: requesting stream 111 at ${it.widthPixels}x${it.heightPixels}; safeArea=${it.safeArea} drawOutside=${it.safeAreaDrawOutside}; ADB task routing")
             }
@@ -5410,8 +5422,8 @@ class CarPlayHostActivity : ComponentActivity() {
             return false
         }
         displayDiagnosticAttempt = DisplayDiagnosticSnapshot.currentAttempt(this)
-        adbClusterConfigured = AdbClusterRouter.enabled(this) && snapshot.controller.configuredClusterSize() ==
-            (DiLink4ClusterDisplay.STREAM_WIDTH to DiLink4ClusterDisplay.STREAM_HEIGHT)
+        adbClusterConfigured = AdbClusterRouter.enabled(this) &&
+            snapshot.controller.configuredClusterSize() == AdbClusterRouter.streamSize()
         controller = snapshot.controller
         updateClusterMapShown()
         sink = snapshot.sink

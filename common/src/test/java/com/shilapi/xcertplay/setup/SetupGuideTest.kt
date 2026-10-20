@@ -91,12 +91,6 @@ class SetupGuideTest {
         assertFalse(SetupGuide.features(DiLinkGeneration.DILINK_5).any { it.feature == Feature.CALL_KEYS })
     }
 
-    @Test fun onlyDiLink3WithTheDiLink4RouteIsAConflict() {
-        assertTrue(SetupGuide.hasConflictingClusterRoute(DiLinkGeneration.DILINK_3, true))
-        assertFalse(SetupGuide.hasConflictingClusterRoute(DiLinkGeneration.DILINK_3, false))
-        assertFalse(SetupGuide.hasConflictingClusterRoute(DiLinkGeneration.DILINK_4, true))
-    }
-
     @Test fun guideOpensByItselfOnlyOnAFreshSetup() {
         assertTrue(SetupGuide.shouldOpenOnLaunch(seen = false, phoneChosen = false))
         assertFalse(SetupGuide.shouldOpenOnLaunch(seen = false, phoneChosen = true))

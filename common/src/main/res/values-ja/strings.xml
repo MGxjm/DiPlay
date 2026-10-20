@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">DiPlay</string>
+    <string name="app_name">DiPlay DM</string>
     <string name="language_section_title">言語</string>
     <string name="language_app_language">アプリの言語</string>
     <string name="language_system_default">システムの設定に従う</string>
@@ -740,11 +740,6 @@
     <string name="cluster_safe_area_reset">メーターのセーフエリアをリセット</string>
     <string name="cluster_safe_area_hint">4本の緑色の境界線をドラッグしてください。保存すると次回のCarPlay接続から反映されます。カスタム範囲はマーカーの位置調整に優先し、リセットで元に戻せます。</string>
     <string name="cluster_safe_area_live_hint">ここで緑色の境界線を動かし、メーター上の枠を確認してください。保存すると再接続後に反映され、キャンセルでは現在の設定を維持します。</string>
-    <string name="oem_cluster_map">車両純正のメーター地図を非表示</string>
-    <string name="oem_cluster_map_description">DiPlayを投影している間、車の純正地図をメーターから隠します。オフなら変更しません。「コンポーネント」ではメーターへの投影だけを隠し、「パッケージ」では投影終了まで純正地図アプリ全体を無効にします。ADB権限が必要です。</string>
-    <string name="oem_cluster_hold_off">オフ</string>
-    <string name="oem_cluster_hold_component">メーターへの投影のみ非表示</string>
-    <string name="oem_cluster_hold_package">純正地図アプリ全体を無効化</string>
     <string name="song_on_hud">HUDに曲名や歌詞を表示</string>
     <string name="song_on_hud_description">ナビの案内がないとき、iPhoneから取得した曲名や歌詞を表示します。進行方向の案内や道路名を優先します。</string>
     <string name="hotspot_network_not_ready">ホットスポットのネットワークを準備できていません</string>
@@ -910,8 +905,6 @@
     <string name="setup_iphone_none">iPhoneがまだ選択されていません</string>
     <string name="setup_features_title">機能</string>
     <string name="setup_features_description">%1$sにおすすめの機能です。使いたい機能をオンにしてください。後から設定画面で変更できます。</string>
-    <string name="setup_cluster_route_conflict">DiLink 4のメーター経路がオンです。DiLink 3ではメーターのCarPlay地図が停止します。</string>
-    <string name="setup_cluster_route_turn_off">オフにする</string>
     <string name="setup_badge_tested">一部の車で動作確認済み</string>
     <string name="setup_badge_experimental">実験的機能</string>
     <string name="setup_badge_adb">ネットワークADBが必要</string>

@@ -28,17 +28,13 @@ object SetupGuide {
             entry(Feature.AUTO_CONNECT, Status.TESTED),
             entry(Feature.LOCATION, Status.TESTED),
             entry(Feature.CLUSTER_MAP, if (dilink3) Status.TESTED else Status.EXPERIMENTAL),
-            // DiLink 4 needs its own ADB cluster route; on DiLink 3 that route blocks the dashboard map.
+            // The ADB route targets the DiLink 4 stock-map panel and is offered only there.
             entry(Feature.DILINK4_ADB_CLUSTER, if (dilink4) Status.EXPERIMENTAL else Status.HIDDEN, needsAdb = true),
             entry(Feature.BYD_NAVIGATION, if (dilink3 || generation == DiLinkGeneration.DILINK_5) Status.TESTED else Status.EXPERIMENTAL),
             entry(Feature.CALLS_ON_DASHBOARD, if (dilink3) Status.EXPERIMENTAL else Status.HIDDEN, needsAdb = true),
             entry(Feature.CALL_KEYS, if (dilink3) Status.EXPERIMENTAL else Status.HIDDEN, needsAdb = true),
         ).filter { it.status != Status.HIDDEN }
     }
-
-    /** A DiLink 3 car with the DiLink 4 route on never sends the DiLink 3 dashboard commands. */
-    fun hasConflictingClusterRoute(generation: DiLinkGeneration, adbClusterEnabled: Boolean): Boolean =
-        generation == DiLinkGeneration.DILINK_3 && adbClusterEnabled
 
     fun navigationAudioChannelDefault(generation: DiLinkGeneration): Int = when (generation) {
         DiLinkGeneration.DILINK_3, DiLinkGeneration.DILINK_4 -> 14

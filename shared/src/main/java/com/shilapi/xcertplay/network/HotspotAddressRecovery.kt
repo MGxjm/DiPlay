@@ -1,6 +1,7 @@
 package com.shilapi.xcertplay.network
 
 import java.io.InterruptedIOException
+import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
 
@@ -21,19 +22,31 @@ internal class HotspotAddressRecovery(
         val started = nowMillis()
         val deadline = started + timeoutMillis
         var candidates = initial
-        if (preferredFamily == HotspotAddressPolicy.FAMILY_IPV6 && !candidates.any(::scopedLinkLocal)) {
+        val wantsIpv6 = preferredFamily == HotspotAddressPolicy.FAMILY_IPV6
+        if (wantsIpv6 && !candidates.any(::scopedLinkLocal)) {
             log("wireless address waiting preference=IPv6 timeoutMs=$timeoutMillis")
+        } else if (!wantsIpv6 && !candidates.any(::usableIpv4)) {
+            // The publish policy prefers IPv4 (#283): the hotspot assigns it shortly after the
+            // framework reports the group ready. Settling for the link-local that is always there
+            // first advertises an endpoint the iPhone cannot reach (#464 family of failures).
+            log("wireless address waiting for IPv4 timeoutMs=$timeoutMillis")
         }
         while (true) {
             checkActive()
-            if (preferredFamily != HotspotAddressPolicy.FAMILY_IPV6) return candidates
-            if (candidates.any(::scopedLinkLocal)) {
-                log("wireless address preference=IPv6 ready elapsedMs=${nowMillis() - started}")
-                return candidates.filter { it !is Inet6Address || !it.isLinkLocalAddress || scopedLinkLocal(it) }
+            if (wantsIpv6) {
+                if (candidates.any(::scopedLinkLocal)) {
+                    log("wireless address preference=IPv6 ready elapsedMs=${nowMillis() - started}")
+                    return candidates.filter { it !is Inet6Address || !it.isLinkLocalAddress || scopedLinkLocal(it) }
+                }
+            } else if (candidates.any(::usableIpv4)) {
+                return candidates
             }
             val remaining = deadline - nowMillis()
             if (remaining <= 0) {
-                log("wireless address preference=IPv6 unavailable elapsedMs=${nowMillis() - started}; using available family")
+                log(
+                    (if (wantsIpv6) "wireless address preference=IPv6" else "wireless address IPv4") +
+                        " unavailable elapsedMs=${nowMillis() - started}; using available family",
+                )
                 return candidates
             }
             pause(minOf(WirelessStartupPolicy.INTERFACE_POLL_MILLIS, remaining))
@@ -60,4 +73,8 @@ internal class HotspotAddressRecovery(
 
     private fun scopedLinkLocal(address: InetAddress): Boolean =
         address is Inet6Address && address.isLinkLocalAddress && address.scopeId != 0
+
+    private fun usableIpv4(address: InetAddress): Boolean =
+        address is Inet4Address && !address.isLoopbackAddress && !address.isAnyLocalAddress &&
+            !address.isLinkLocalAddress && !address.isMulticastAddress
 }

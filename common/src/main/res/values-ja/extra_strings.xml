@@ -82,8 +82,6 @@
     <string name="picture_warmth">色温度</string>
     <string name="picture_reset">画質をリセット</string>
     <string name="settings_language_summary">DiPlayで使用する言語を選択</string>
-    <string name="platform21_cluster_mode">Platform 21メーター表示（実験的機能）</string>
-    <string name="platform21_cluster_description">2023年式Tang DM-iのコントローラー21向けの機能です。初期状態ではオフです。検証済みの投影ディスプレイだけを使用し、中央寄せの半幅地図を維持します。純正メーターのモードや純正地図は変更しません。事前に許可されたローカルADBが必要です。設定を適用するとCarPlayが再接続されます。この統合機能は停車中の実車検証が必要です。</string>
     <string name="default_connection_mode">標準の接続方法</string>
     <string name="default_connection_last_used">前回使用した方法</string>
     <string name="default_connection_wireless">ワイヤレス</string>

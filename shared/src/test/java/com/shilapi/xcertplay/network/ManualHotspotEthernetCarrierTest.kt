@@ -83,6 +83,16 @@ class ManualHotspotEthernetCarrierTest {
         assertTrue(selected!!.address is Inet6Address)
     }
 
+    @Test fun inferredCarrierNeedsAUsableIpv4NotJustLinkLocal() {
+        // Every up IPv6 interface holds a link-local, so link-local alone cannot prove an
+        // unlabelled VLAN carries the hotspot; the iPhone has no IPv4 endpoint to reach on it.
+        assertTrue(hotspotCarrierEvidence(ipv4))
+        assertTrue(hotspotCarrierEvidence(globals))
+        assertFalse(hotspotCarrierEvidence(ipv6))
+        assertFalse(hotspotCarrierEvidence(InetAddress.getByName("169.254.1.1")))
+        assertFalse(hotspotCarrierEvidence(InetAddress.getByName("127.0.0.1")))
+    }
+
     @Test fun globalAddressThatIsNotPrivateIsStillAValidHotspotAddress() {
         // 198.18.34.15 is what the reference unit published; a private-range filter would drop it.
         assertTrue(publishesHotspotAddress(globals))

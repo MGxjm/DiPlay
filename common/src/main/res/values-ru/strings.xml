@@ -745,8 +745,6 @@
     <string name="setup_iphone_none">iPhone ещё не выбран</string>
     <string name="setup_features_title">Функции</string>
     <string name="setup_features_description">Рекомендовано для %1$s. Включите нужное сейчас; всё остаётся в настройках и может быть изменено позже.</string>
-    <string name="setup_cluster_route_conflict">Включён маршрут приборной панели DiLink 4. На DiLink 3 он мешает показу карты CarPlay на приборной панели.</string>
-    <string name="setup_cluster_route_turn_off">Выключить</string>
     <string name="setup_badge_tested">Проверено на некоторых автомобилях</string>
     <string name="setup_badge_experimental">Экспериментально</string>
     <string name="setup_badge_adb">Требуется ADB по сети</string>
