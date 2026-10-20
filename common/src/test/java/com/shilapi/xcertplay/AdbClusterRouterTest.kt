@@ -112,7 +112,7 @@ class AdbClusterRouterTest {
     }
 
     @Test fun stockMapBackTargetsThePanelDisplayWithKeycodeBack() {
-        assertEquals("input -d 7 4", AdbClusterRouter.backCommand(7))
+        assertEquals("input -d 7 keyevent 4", AdbClusterRouter.backCommand(7))
         assertTrue(runCatching { AdbClusterRouter.backCommand(0) }.isFailure)
     }
 

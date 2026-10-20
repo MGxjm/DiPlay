@@ -30,7 +30,7 @@ internal object AdbClusterRouter {
     /** KEYCODE_BACK (4) to one display. */
     internal fun backCommand(display: Int): String {
         require(display > 0)
-        return "input -d $display 4"
+        return "input -d $display keyevent 4"
     }
 
     /**

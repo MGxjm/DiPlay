@@ -33,7 +33,7 @@ changed.
 
 The stock map shares the panel and can cover DiPlay's window. While the ADB
 option is on, DiPlay's window is confirmed on the panel and the iPhone session is
-live, DiPlay sends one `input -d <panel displayId> 4` (KEYCODE_BACK) to the panel
+live, DiPlay sends one `input -d <panel displayId> keyevent 4` (KEYCODE_BACK) to the panel
 in two cases:
 
 - the wheel-menu mode listener sees the cluster menu enter **Small screen navi**
